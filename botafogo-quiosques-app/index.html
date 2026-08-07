@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BFR — Controle de Quiosques</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; padding: 0; background: #0b0b0c; }
+    #root { min-height: 100vh; }
+    #fallback { color: #999; font-family: sans-serif; text-align: center; padding: 40px; }
+    @media print {
+      html, body { background: #ffffff !important; }
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.3.1",
+      "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1",
+      "xlsx": "https://esm.sh/xlsx@0.18.5",
+      "recharts": "https://esm.sh/recharts@2.12.7?deps=react@18.3.1,react-dom@18.3.1",
+      "firebase/app": "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js",
+      "firebase/database": "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js",
+      "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"><div id="fallback">Carregando...</div></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
