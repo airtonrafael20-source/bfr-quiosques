@@ -220,13 +220,30 @@ function tamanhoParaCategoria(categoria, tamanhoDetectado) {
 }
 const KNOWN_SIZES = /^(PP|P|M|G|GG|3G|4G|5G|6G|2GG|3GG|4GG|5GG|6GG|\d{1,2})$/i;
 const LETTER_SIZES = /^(PP|P|M|G|GG|3G|4G|5G|6G|2GG|3GG|4GG|5GG|6GG)$/i;
-function extractTamanhoDoProduto(nomeCompleto) {
+function extractTamanhoDoProdutoRaw(nomeCompleto) {
   let produto = (nomeCompleto || "").trim();
   let m = produto.match(/-?\s*TAM\.?\s*([A-Z0-9]+)\s*$/i);
   if (m) {
     const tamanho = m[1].toUpperCase();
     produto = produto.slice(0, m.index).replace(/-\s*$/, "").trim();
     return { produto, tamanho };
+  }
+  const dashIdx = produto.lastIndexOf(" - ");
+  if (dashIdx !== -1) {
+    const before = produto.slice(0, dashIdx);
+    const after = produto.slice(dashIdx + 3).trim();
+    const afterTokens = after.split(/\s+/);
+    if (afterTokens.length >= 3) {
+      const normTok = (s) => s.replace(/^0+(?=\d)/, "").toUpperCase();
+      const firstTok = afterTokens[0];
+      const lastTok = afterTokens[afterTokens.length - 1];
+      if (normTok(firstTok) === normTok(lastTok) && KNOWN_SIZES.test(normTok(firstTok))) {
+        const cor = afterTokens.slice(1, afterTokens.length - 1).join(" ");
+        const tamanho = lastTok.toUpperCase();
+        const produtoFinal = cor ? `${before} - ${cor}` : before;
+        return { produto: produtoFinal, tamanho };
+      }
+    }
   }
   const tokens = produto.split(/\s+/);
   if (tokens.length >= 2) {
@@ -263,6 +280,17 @@ function extractTamanhoDoProduto(nomeCompleto) {
   }
   return { produto, tamanho: "" };
 }
+function limparTamanhosResiduais(produto) {
+  let s = produto || "";
+  s = s.replace(/(^|[\s-])(?:PP|[2-6]GG|GG|[2-6]G|G|M|P)(?=[\s-]|$)/gi, (_, pre) => pre);
+  s = s.replace(/(^|[\s-])0[0-9](?=[\s-]|$)/g, (_, pre) => pre);
+  s = s.replace(/\s{2,}/g, " ").replace(/-{2,}/g, "-").replace(/\s*-\s*$/, "").trim();
+  return s;
+}
+function extractTamanhoDoProduto(nomeCompleto) {
+  const resultado = extractTamanhoDoProdutoRaw(nomeCompleto);
+  return { produto: limparTamanhosResiduais(resultado.produto), tamanho: resultado.tamanho };
+}
 function makeKioskFromSeed(seed) {
   return {
     responsavel: seed.responsavel || "",
@@ -295,7 +323,8 @@ function controlNumberFor(index) {
 function migrateEscudos(st) {
   let escudoCasa = st.escudoCasa;
   let escudoAdversario = st.escudoAdversario;
-  if (escudoCasa === void 0 || escudoAdversario === void 0) {
+  let responsavelSeparacao = st.responsavelSeparacao;
+  if (escudoCasa === void 0 || escudoAdversario === void 0 || responsavelSeparacao === void 0) {
     const kiosksArr = Object.values(st.kiosks || {});
     if (escudoCasa === void 0) {
       const found = kiosksArr.find((k) => k && k.escudoCasa);
@@ -305,8 +334,13 @@ function migrateEscudos(st) {
       const found = kiosksArr.find((k) => k && k.escudoAdversario);
       escudoAdversario = found ? found.escudoAdversario : "";
     }
+    if (responsavelSeparacao === void 0) {
+      const found = kiosksArr.find((k) => k && k.responsavel && k.responsavel.trim());
+      const nome = found ? found.responsavel.trim().toUpperCase() : "";
+      responsavelSeparacao = nome.includes("GEOVAN") ? "Geovani" : "Rafael";
+    }
   }
-  return { ...st, escudoCasa: escudoCasa || BOTAFOGO_CREST, escudoAdversario: escudoAdversario || "" };
+  return { ...st, escudoCasa: escudoCasa || BOTAFOGO_CREST, escudoAdversario: escudoAdversario || "", responsavelSeparacao: responsavelSeparacao || "Rafael" };
 }
 const PRODUCT_TYPE_ORDER = [/\bHOME\b/i, /\bTHIRD\b/i, /\bAWAY\b/i, /\bVIAGEM\b/i];
 function productTypeRank(produto) {
@@ -358,7 +392,7 @@ function defaultState() {
   order.forEach((name) => {
     kiosks[name] = makeKioskFromSeed(SEED[name]);
   });
-  return { order, kiosks, catalog: {}, productPhotos: {}, escudoCasa: BOTAFOGO_CREST, escudoAdversario: "", updatedAt: Date.now() };
+  return { order, kiosks, catalog: {}, productPhotos: {}, escudoCasa: BOTAFOGO_CREST, escudoAdversario: "", responsavelSeparacao: "Rafael", updatedAt: Date.now() };
 }
 function LoginScreen({ onLogin }) {
   const [user, setUser] = useState("Rafael");
@@ -776,7 +810,7 @@ function AppShell({ authUser, onLogout }) {
       const iMarca = header.findIndex((h) => h.includes("MARCA"));
       const iProduto = header.findIndex((h) => h.includes("PRODUTO") || h.includes("NOME") || h.includes("DESCRI\xC7\xC3O") || h.includes("DESCRICAO"));
       const iQtd = header.findIndex((h) => h.includes("QUANTIDADE") || h.includes("QTD") || h.includes("SALDO"));
-      if (iProduto !== -1 && iQtd !== -1 && (iCodigo !== -1 || iMarca !== -1)) {
+      if (iProduto !== -1 && iQtd !== -1) {
         headerIdx = i;
         idxCodigo = iCodigo;
         idxMarca = iMarca;
@@ -1030,6 +1064,7 @@ function AppShell({ authUser, onLogout }) {
       escudoCasa: state.escudoCasa,
       escudoAdversario: state.escudoAdversario,
       productPhotos: state.productPhotos,
+      responsavelSeparacao: state.responsavelSeparacao,
       onMeta: (field, value) => updateMeta(activeTab, field, value),
       onItemField: (id, field, value) => updateItemField(activeTab, id, field, value),
       onAddItem: () => addItem(activeTab),
@@ -1037,6 +1072,7 @@ function AppShell({ authUser, onLogout }) {
       onRemoveKiosk: () => removeKiosk(activeTab),
       onClearItems: () => clearKioskItems(activeTab),
       onEscudoChange: (field, dataUrl) => updateEscudo(field, dataUrl),
+      onResponsavelChange: (value) => updateEscudo("responsavelSeparacao", value),
       onPhotoChange: (produto, dataUrl) => updateProductPhoto(produto, dataUrl)
     }
   )), /* @__PURE__ */ React.createElement("footer", { className: "bfr-footer no-print" }, "Botafogo Store \xB7 Controle de Quiosques \u2014 dados salvos automaticamente"));
@@ -1059,6 +1095,7 @@ function KioskView({
   escudoCasa,
   escudoAdversario,
   productPhotos,
+  responsavelSeparacao,
   onMeta,
   onItemField,
   onAddItem,
@@ -1066,20 +1103,11 @@ function KioskView({
   onRemoveKiosk,
   onClearItems,
   onEscudoChange,
-  onPhotoChange
+  onPhotoChange,
+  onResponsavelChange
 }) {
   if (!kiosk) return null;
-  const sortedItems = useMemo(() => {
-    return [...kiosk.items].map((it, idx) => ({ it, idx })).sort((a, b) => {
-      const catDiff = categoryRank(a.it.categoria) - categoryRank(b.it.categoria);
-      if (catDiff !== 0) return catDiff;
-      const typeDiff = productTypeRank(a.it.produto) - productTypeRank(b.it.produto);
-      if (typeDiff !== 0) return typeDiff;
-      const seasonDiff = seasonRank(a.it.produto) - seasonRank(b.it.produto);
-      if (seasonDiff !== 0) return seasonDiff;
-      return a.idx - b.idx;
-    }).map(({ it }) => it);
-  }, [kiosk.items]);
+  const sortedItems = kiosk.items;
   const byCategory = useMemo(() => {
     const map = {};
     kiosk.items.forEach((it) => {
@@ -1095,7 +1123,7 @@ function KioskView({
     return map;
   }, [kiosk.items]);
   const cats = Object.keys(byCategory).sort((a, b) => categoryRank(a) - categoryRank(b));
-  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement(MetaField, { label: "Respons\xE1vel Separa\xE7\xE3o *", value: kiosk.responsavel, onChange: (v) => onMeta("responsavel", v) }), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field" }, /* @__PURE__ */ React.createElement("span", null, "Respons\xE1vel Separa\xE7\xE3o *"), /* @__PURE__ */ React.createElement("select", { className: "bfr-input", value: responsavelSeparacao || "Rafael", onChange: (e) => onResponsavelChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Rafael" }, "Rafael"), /* @__PURE__ */ React.createElement("option", { value: "Geovani" }, "Geovani"))), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
     EscudoUpload,
     {
       value: escudoCasa,
@@ -1111,7 +1139,7 @@ function KioskView({
       alt: "Escudo do advers\xE1rio",
       onChange: (dataUrl) => onEscudoChange("escudoAdversario", dataUrl)
     }
-  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input no-print", value: it.categoria, onChange: (e) => onItemField(it.id, "categoria", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.categoria)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -1483,13 +1511,12 @@ function GlobalStyle() {
         .bfr-mostruario-col { display:none !important; }
         .bfr-resumo-last-col { display:none !important; }
         .bfr-table-items th:nth-child(1), .bfr-table-items td:nth-child(1) { width:8% !important; }
-        .bfr-table-items th:nth-child(2), .bfr-table-items td:nth-child(2) { width:12% !important; }
-        .bfr-table-items th:nth-child(3), .bfr-table-items td:nth-child(3) { width:32% !important; }
-        .bfr-table-items th:nth-child(4), .bfr-table-items td:nth-child(4) { width:4% !important; }
+        .bfr-table-items th:nth-child(2), .bfr-table-items td:nth-child(2) { width:40% !important; }
+        .bfr-table-items th:nth-child(3), .bfr-table-items td:nth-child(3) { width:4% !important; }
+        .bfr-table-items th:nth-child(4), .bfr-table-items td:nth-child(4),
         .bfr-table-items th:nth-child(5), .bfr-table-items td:nth-child(5),
-        .bfr-table-items th:nth-child(6), .bfr-table-items td:nth-child(6),
-        .bfr-table-items th:nth-child(8), .bfr-table-items td:nth-child(8),
-        .bfr-table-items th:nth-child(9), .bfr-table-items td:nth-child(9) { width:11% !important; text-align:center; }
+        .bfr-table-items th:nth-child(7), .bfr-table-items td:nth-child(7),
+        .bfr-table-items th:nth-child(8), .bfr-table-items td:nth-child(8) { width:12% !important; text-align:center; }
 
         .bfr-foto-upload { width:40px; height:40px; border:1px solid #999; border-radius:4px; }
         .bfr-foto-empty { display:none !important; }
