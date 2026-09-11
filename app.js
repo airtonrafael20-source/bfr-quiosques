@@ -441,7 +441,7 @@ function StatCard({ label, value, sub }) {
 function Toast({ message, onClose }) {
   useEffect(() => {
     if (!message) return;
-    const t = setTimeout(onClose, 3600);
+    const t = setTimeout(onClose, 8000);
     return () => clearTimeout(t);
   }, [message, onClose]);
   if (!message) return null;
@@ -1010,7 +1010,9 @@ function AppShell({ authUser, onLogout }) {
     setTimeout(() => {
       window.removeEventListener("beforeprint", onBeforePrint);
       if (!firedPrint) {
-        setToast("N\xE3o consegui abrir a caixa de impress\xE3o automaticamente. Use Ctrl+P (Windows) ou Cmd+P (Mac) para imprimir/salvar em PDF.");
+        setToast("N\xE3o consegui abrir a caixa de impress\xE3o automaticamente. Use Ctrl+P (Windows) ou Cmd+P (Mac) para imprimir ou salvar em PDF.");
+      } else {
+        setToast("Dica: na caixa que abriu, troque o 'Destino' para 'Salvar como PDF' \u2014 assim voc\xEA gera o arquivo pra enviar por WhatsApp sem precisar imprimir de verdade.");
       }
     }, 700);
   };
@@ -1030,7 +1032,7 @@ function AppShell({ authUser, onLogout }) {
         e.target.value = "";
       }
     }
-  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar Excel"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Atalho garantido: Ctrl+P (Windows) ou Cmd+P (Mac)" }, "\u{1F5B6} Imprimir / PDF (ou Ctrl+P)"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar Excel"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Na caixa que abrir, escolha 'Salvar como PDF' pra gerar o arquivo e enviar por WhatsApp" }, "\u{1F5B6} Imprimir / Salvar PDF"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: `bfr-tab ${activeTab === "DASHBOARD" ? "active" : ""}`,
