@@ -341,7 +341,7 @@ function migrateEscudos(st) {
       responsavelSeparacao = nome.includes("GEOVAN") ? "Geovani" : "Rafael";
     }
   }
-  return { ...st, escudoCasa: escudoCasa || BOTAFOGO_CREST, escudoAdversario: escudoAdversario || "", responsavelSeparacao: responsavelSeparacao || "Rafael" };
+  return { ...st, escudoCasa: escudoCasa || BOTAFOGO_CREST, escudoAdversario: escudoAdversario || "", escudoAdversarioCamisa: st.escudoAdversarioCamisa || "", customTeamLogos: st.customTeamLogos || {}, responsavelSeparacao: responsavelSeparacao || "Rafael" };
 }
 const PRODUCT_TYPE_ORDER = [/\bHOME\b/i, /\bTHIRD\b/i, /\bAWAY\b/i, /\bVIAGEM\b/i];
 function productTypeRank(produto) {
@@ -393,7 +393,7 @@ function defaultState() {
   order.forEach((name) => {
     kiosks[name] = makeKioskFromSeed(SEED[name]);
   });
-  return { order, kiosks, catalog: {}, productPhotos: {}, escudoCasa: BOTAFOGO_CREST, escudoAdversario: "", responsavelSeparacao: "Rafael", updatedAt: Date.now() };
+  return { order, kiosks, catalog: {}, productPhotos: {}, escudoCasa: BOTAFOGO_CREST, escudoAdversario: "", escudoAdversarioCamisa: "", customTeamLogos: {}, responsavelSeparacao: "Rafael", updatedAt: Date.now() };
 }
 function LoginScreen({ onLogin }) {
   const [user, setUser] = useState("Rafael");
@@ -674,6 +674,16 @@ function AppShell({ authUser, onLogout }) {
   };
   const updateEscudo = (field, value) => {
     setState((s) => ({ ...s, [field]: value }));
+  };
+  const addCustomTeamLogo = (id, entry) => {
+    setState((s) => ({ ...s, customTeamLogos: { ...s.customTeamLogos, [id]: entry } }));
+  };
+  const deleteCustomTeamLogo = (id) => {
+    setState((s) => {
+      const next = { ...s.customTeamLogos };
+      delete next[id];
+      return { ...s, customTeamLogos: next };
+    });
   };
   const updateProductPhoto = (produto, dataUrl) => {
     setState((s) => {
@@ -1066,6 +1076,8 @@ function AppShell({ authUser, onLogout }) {
       totals: kioskTotals[activeTab],
       escudoCasa: state.escudoCasa,
       escudoAdversario: state.escudoAdversario,
+      escudoAdversarioCamisa: state.escudoAdversarioCamisa,
+      customTeamLogos: state.customTeamLogos,
       productPhotos: state.productPhotos,
       responsavelSeparacao: state.responsavelSeparacao,
       onMeta: (field, value) => updateMeta(activeTab, field, value),
@@ -1076,7 +1088,10 @@ function AppShell({ authUser, onLogout }) {
       onClearItems: () => clearKioskItems(activeTab),
       onEscudoChange: (field, dataUrl) => updateEscudo(field, dataUrl),
       onResponsavelChange: (value) => updateEscudo("responsavelSeparacao", value),
-      onPhotoChange: (produto, dataUrl) => updateProductPhoto(produto, dataUrl)
+      onPhotoChange: (produto, dataUrl) => updateProductPhoto(produto, dataUrl),
+      onAddCustomLogo: addCustomTeamLogo,
+      onDeleteCustomLogo: deleteCustomTeamLogo,
+      askConfirm
     }
   )), /* @__PURE__ */ React.createElement("footer", { className: "bfr-footer no-print" }, "Botafogo Store \xB7 Controle de Quiosques \u2014 dados salvos automaticamente"));
 }
@@ -1097,6 +1112,8 @@ function KioskView({
   totals,
   escudoCasa,
   escudoAdversario,
+  escudoAdversarioCamisa,
+  customTeamLogos,
   productPhotos,
   responsavelSeparacao,
   onMeta,
@@ -1107,7 +1124,10 @@ function KioskView({
   onClearItems,
   onEscudoChange,
   onPhotoChange,
-  onResponsavelChange
+  onResponsavelChange,
+  onAddCustomLogo,
+  onDeleteCustomLogo,
+  askConfirm
 }) {
   if (!kiosk) return null;
   const sortedItems = kiosk.items;
@@ -1138,7 +1158,13 @@ function KioskView({
     AdversarioEscudoPicker,
     {
       value: escudoAdversario,
-      onChange: (dataUrl) => onEscudoChange("escudoAdversario", dataUrl)
+      camisaValue: escudoAdversarioCamisa,
+      onChange: (dataUrl) => onEscudoChange("escudoAdversario", dataUrl),
+      onCamisaChange: (dataUrl) => onEscudoChange("escudoAdversarioCamisa", dataUrl),
+      customLogos: customTeamLogos,
+      onAddCustomLogo,
+      onDeleteCustomLogo,
+      askConfirm
     }
   ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
     "input",
@@ -1232,19 +1258,64 @@ function EscudoUpload({ value, titulo, alt, onChange }) {
     }
   ));
 }
-function AdversarioEscudoPicker({ value, onChange }) {
+function AdversarioEscudoPicker({
+  value,
+  camisaValue,
+  onChange,
+  onCamisaChange,
+  customLogos,
+  onAddCustomLogo,
+  onDeleteCustomLogo,
+  askConfirm
+}) {
   const [open, setOpen] = useState(false);
-  const fileInputRef = useRef(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [newNome, setNewNome] = useState("");
+  const [newEscudo, setNewEscudo] = useState("");
+  const [newCamisa, setNewCamisa] = useState("");
+  const crestInputRef = useRef(null);
+  const camisaInputRef = useRef(null);
   const boxRef = useRef(null);
   useEffect(() => {
     if (!open) return;
     const onClickOutside = (e) => {
-      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false);
+      if (e.target.closest(".bfr-dialog-overlay")) return;
+      if (boxRef.current && !boxRef.current.contains(e.target)) {
+        setOpen(false);
+        setAddingNew(false);
+      }
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
-  const times = Object.keys(TEAM_LOGOS).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const staticTimes = Object.keys(TEAM_LOGOS).sort((a, b) => a.localeCompare(b, "pt-BR")).map((nome) => ({ id: `static-${nome}`, nome, escudo: TEAM_LOGOS[nome], camisa: "", custom: false }));
+  const customTimes = Object.entries(customLogos || {}).map(([id, entry]) => ({ id, nome: entry.nome, escudo: entry.escudo, camisa: entry.camisa || "", custom: true })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const allTimes = [...customTimes, ...staticTimes];
+  const selecionar = (t) => {
+    onChange(t.escudo);
+    onCamisaChange(t.camisa || "");
+    setOpen(false);
+  };
+  const resetNovoForm = () => {
+    setAddingNew(false);
+    setNewNome("");
+    setNewEscudo("");
+    setNewCamisa("");
+  };
+  const salvarNovoTime = () => {
+    if (!newNome.trim() || !newEscudo) return;
+    const id = "custom-" + Date.now();
+    onAddCustomLogo(id, { nome: newNome.trim(), escudo: newEscudo, camisa: newCamisa });
+    onChange(newEscudo);
+    onCamisaChange(newCamisa);
+    resetNovoForm();
+    setOpen(false);
+  };
+  const excluirTime = async (t, e) => {
+    e.stopPropagation();
+    const ok = await askConfirm(`Remover "${t.nome}" do cat\xE1logo de escudos?`);
+    if (ok) onDeleteCustomLogo(t.id);
+  };
   return /* @__PURE__ */ React.createElement(
     "div",
     { className: "bfr-escudo-picker-wrap", ref: boxRef },
@@ -1253,47 +1324,97 @@ function AdversarioEscudoPicker({ value, onChange }) {
       {
         type: "button",
         className: `bfr-escudo-upload ${value ? "" : "bfr-escudo-empty"}`,
-        title: "Escolher escudo do adversário",
+        title: "Escolher escudo do advers\xE1rio",
         onClick: () => setOpen((o) => !o)
       },
-      value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Escudo do adversário", className: "bfr-escudo-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-placeholder" }, "\u{1F4F7}")
+      value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Escudo do advers\xE1rio", className: "bfr-escudo-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-placeholder" }, "\u{1F4F7}")
     ),
-    open && /* @__PURE__ */ React.createElement("div", { className: "bfr-escudo-popover no-print" }, /* @__PURE__ */ React.createElement(
+    camisaValue && /* @__PURE__ */ React.createElement("img", { src: camisaValue, alt: "Camisa do advers\xE1rio", className: "bfr-camisa-thumb", title: "Camisa do advers\xE1rio" }),
+    open && /* @__PURE__ */ React.createElement(
       "div",
-      { className: "bfr-escudo-popover-header" },
-      /* @__PURE__ */ React.createElement("span", null, "Escolher time adversário"),
-      /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-popover-close", onClick: () => setOpen(false) }, "\u2715")
-    ), /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-btn bfr-escudo-upload-btn", onClick: () => fileInputRef.current?.click() }, "\u{1F4E4} Enviar outra imagem (time fora da lista)"), /* @__PURE__ */ React.createElement(
-      "div",
-      { className: "bfr-escudo-grid" },
-      times.map((nome) => /* @__PURE__ */ React.createElement(
-        "button",
-        {
-          type: "button",
-          key: nome,
-          className: "bfr-escudo-grid-item",
-          title: nome,
-          onClick: () => {
-            onChange(TEAM_LOGOS[nome]);
-            setOpen(false);
+      { className: "bfr-escudo-popover no-print" },
+      /* @__PURE__ */ React.createElement(
+        "div",
+        { className: "bfr-escudo-popover-header" },
+        /* @__PURE__ */ React.createElement("span", null, addingNew ? "Novo time" : "Escolher time advers\xE1rio"),
+        /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-popover-close", onClick: () => { setOpen(false); resetNovoForm(); } }, "\u2715")
+      ),
+      !addingNew ? /* @__PURE__ */ React.createElement(
+        React.Fragment,
+        null,
+        /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-btn bfr-escudo-upload-btn", onClick: () => setAddingNew(true) }, "\u{1F4E4} Enviar novo time (salva no cat\xE1logo)"),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          { className: "bfr-escudo-grid" },
+          allTimes.map((t) => /* @__PURE__ */ React.createElement(
+            "div",
+            { className: "bfr-escudo-grid-cell", key: t.id },
+            /* @__PURE__ */ React.createElement(
+              "button",
+              { type: "button", className: "bfr-escudo-grid-item", title: t.nome, onClick: () => selecionar(t) },
+              /* @__PURE__ */ React.createElement("img", { src: t.escudo, alt: t.nome }),
+              t.camisa && /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-camisa-dot", title: "Tem foto da camisa" }, "\u{1F455}")
+            ),
+            t.custom && /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-grid-delete", title: "Excluir do cat\xE1logo", onClick: (e) => excluirTime(t, e) }, "\u2715")
+          ))
+        )
+      ) : /* @__PURE__ */ React.createElement(
+        "div",
+        { className: "bfr-escudo-new-form" },
+        /* @__PURE__ */ React.createElement(
+          "label",
+          { className: "bfr-meta-field" },
+          /* @__PURE__ */ React.createElement("span", null, "Nome do time"),
+          /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: newNome, onChange: (e) => setNewNome(e.target.value), placeholder: "Ex: Flamengo", autoFocus: true })
+        ),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          { className: "bfr-escudo-new-row" },
+          /* @__PURE__ */ React.createElement(
+            "button",
+            { type: "button", className: "bfr-btn bfr-escudo-new-btn", onClick: () => crestInputRef.current?.click() },
+            newEscudo ? /* @__PURE__ */ React.createElement("img", { src: newEscudo, alt: "Escudo escolhido", className: "bfr-escudo-new-preview" }) : /* @__PURE__ */ React.createElement("span", null, "\u{1F6E1}\uFE0F Escolher escudo")
+          ),
+          /* @__PURE__ */ React.createElement(
+            "button",
+            { type: "button", className: "bfr-btn bfr-escudo-new-btn", onClick: () => camisaInputRef.current?.click() },
+            newCamisa ? /* @__PURE__ */ React.createElement("img", { src: newCamisa, alt: "Camisa escolhida", className: "bfr-escudo-new-preview" }) : /* @__PURE__ */ React.createElement("span", null, "\u{1F455} Camisa (opcional)")
+          )
+        ),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          { className: "bfr-escudo-new-actions" },
+          /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-btn", onClick: resetNovoForm }, "Cancelar"),
+          /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-btn bfr-btn-gold", disabled: !newNome.trim() || !newEscudo, onClick: salvarNovoTime }, "Salvar")
+        ),
+        /* @__PURE__ */ React.createElement("input", {
+          ref: crestInputRef,
+          type: "file",
+          accept: "image/*",
+          style: { display: "none" },
+          onChange: async (e) => {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = "";
+            if (!file) return;
+            const dataUrl = await resizeImageToDataUrl(file, 220, 0.75);
+            setNewEscudo(dataUrl);
           }
-        },
-        /* @__PURE__ */ React.createElement("img", { src: TEAM_LOGOS[nome], alt: nome })
-      ))
-    ), /* @__PURE__ */ React.createElement("input", {
-      ref: fileInputRef,
-      type: "file",
-      accept: "image/*",
-      style: { display: "none" },
-      onChange: async (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-        const dataUrl = await resizeImageToDataUrl(file, 220, 0.75);
-        onChange(dataUrl);
-        setOpen(false);
-        e.target.value = "";
-      }
-    }))
+        }),
+        /* @__PURE__ */ React.createElement("input", {
+          ref: camisaInputRef,
+          type: "file",
+          accept: "image/*",
+          style: { display: "none" },
+          onChange: async (e) => {
+            const file = e.target.files && e.target.files[0];
+            e.target.value = "";
+            if (!file) return;
+            const dataUrl = await resizeImageToDataUrl(file, 300, 0.8);
+            setNewCamisa(dataUrl);
+          }
+        })
+      )
+    )
   );
 }
 function ProductPhotoUpload({ value, onChange }) {
@@ -1465,8 +1586,11 @@ function GlobalStyle() {
       .bfr-escudo-img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
       .bfr-escudo-placeholder { font-size:16px; opacity:0.5; }
       .bfr-jogo-x { color:#6b6b6e; font-size:13px; flex-shrink:0; }
-      .bfr-escudo-picker-wrap { position:relative; }
+      .bfr-escudo-picker-wrap { position:relative; display:inline-flex; align-items:center; gap:6px; }
       .bfr-escudo-empty { opacity:0.85; background:#101012; }
+      .bfr-camisa-thumb {
+        width:36px; height:46px; object-fit:cover; border-radius:6px; border:2px solid #3a3a3d; background:#f5f5f4;
+      }
       .bfr-escudo-popover {
         position:absolute; top:calc(100% + 8px); left:0; z-index:60; width:300px; max-width:80vw;
         background:#161618; border:1px solid #2a2a2d; border-radius:8px; padding:12px;
@@ -1479,13 +1603,32 @@ function GlobalStyle() {
       .bfr-escudo-popover-close { background:none; border:none; color:#8a8a8e; cursor:pointer; font-size:13px; }
       .bfr-escudo-popover-close:hover { color:#fff; }
       .bfr-escudo-upload-btn { width:100%; font-size:11.5px; padding:8px; margin-bottom:10px; }
-      .bfr-escudo-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; max-height:240px; overflow-y:auto; }
+      .bfr-escudo-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px 8px; max-height:240px; overflow-y:auto; padding:2px; }
+      .bfr-escudo-grid-cell { position:relative; }
       .bfr-escudo-grid-item {
         width:100%; aspect-ratio:1; border-radius:50%; border:2px solid #2a2a2d; background:#f5f5f4;
-        cursor:pointer; overflow:hidden; padding:3px; box-sizing:border-box;
+        cursor:pointer; overflow:hidden; padding:3px; box-sizing:border-box; position:relative;
       }
       .bfr-escudo-grid-item:hover { border-color:${GOLD}; }
       .bfr-escudo-grid-item img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
+      .bfr-escudo-camisa-dot {
+        position:absolute; bottom:-2px; right:-2px; font-size:11px; background:#161618; border-radius:50%;
+        border:1px solid #2a2a2d; width:16px; height:16px; display:flex; align-items:center; justify-content:center;
+      }
+      .bfr-escudo-grid-delete {
+        position:absolute; top:-4px; right:-4px; width:18px; height:18px; border-radius:50%; background:#8a2222;
+        border:1px solid #161618; color:#fff; font-size:10px; line-height:1; cursor:pointer; padding:0;
+        display:flex; align-items:center; justify-content:center;
+      }
+      .bfr-escudo-grid-delete:hover { background:#b02b2b; }
+      .bfr-escudo-new-form { display:flex; flex-direction:column; gap:10px; }
+      .bfr-escudo-new-row { display:flex; gap:8px; }
+      .bfr-escudo-new-btn {
+        flex:1; height:64px; font-size:11px; display:flex; align-items:center; justify-content:center;
+        overflow:hidden; padding:4px;
+      }
+      .bfr-escudo-new-preview { max-width:100%; max-height:100%; object-fit:contain; }
+      .bfr-escudo-new-actions { display:flex; justify-content:flex-end; gap:8px; }
 
       .bfr-foto-td { padding:3px 6px !important; text-align:center; }
       .bfr-foto-upload {
