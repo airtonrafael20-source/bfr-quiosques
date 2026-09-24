@@ -1457,16 +1457,16 @@ function GlobalStyle() {
       .bfr-meta-field { display:flex; flex-direction:column; gap:5px; font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:#8a8a8e; }
       .bfr-jogo-row { display:flex; align-items:center; gap:8px; }
       .bfr-escudo-upload {
-        flex-shrink:0; width:34px; height:34px; border-radius:50%; border:1px solid #3a3a3d;
+        flex-shrink:0; width:46px; height:46px; border-radius:50%; border:2px solid #3a3a3d;
         display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
-        background:#101012;
+        background:#f5f5f4; padding:3px; box-sizing:border-box;
       }
       .bfr-escudo-upload:hover { border-color:${GOLD}; }
-      .bfr-escudo-img { width:100%; height:100%; object-fit:cover; }
-      .bfr-escudo-placeholder { font-size:14px; opacity:0.6; }
+      .bfr-escudo-img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
+      .bfr-escudo-placeholder { font-size:16px; opacity:0.5; }
       .bfr-jogo-x { color:#6b6b6e; font-size:13px; flex-shrink:0; }
       .bfr-escudo-picker-wrap { position:relative; }
-      .bfr-escudo-empty { opacity:0.85; }
+      .bfr-escudo-empty { opacity:0.85; background:#101012; }
       .bfr-escudo-popover {
         position:absolute; top:calc(100% + 8px); left:0; z-index:60; width:300px; max-width:80vw;
         background:#161618; border:1px solid #2a2a2d; border-radius:8px; padding:12px;
@@ -1479,13 +1479,13 @@ function GlobalStyle() {
       .bfr-escudo-popover-close { background:none; border:none; color:#8a8a8e; cursor:pointer; font-size:13px; }
       .bfr-escudo-popover-close:hover { color:#fff; }
       .bfr-escudo-upload-btn { width:100%; font-size:11.5px; padding:8px; margin-bottom:10px; }
-      .bfr-escudo-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; max-height:220px; overflow-y:auto; }
+      .bfr-escudo-grid { display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; max-height:240px; overflow-y:auto; }
       .bfr-escudo-grid-item {
-        width:100%; aspect-ratio:1; border-radius:50%; border:1px solid #2a2a2d; background:#101012;
-        cursor:pointer; overflow:hidden; padding:0;
+        width:100%; aspect-ratio:1; border-radius:50%; border:2px solid #2a2a2d; background:#f5f5f4;
+        cursor:pointer; overflow:hidden; padding:3px; box-sizing:border-box;
       }
       .bfr-escudo-grid-item:hover { border-color:${GOLD}; }
-      .bfr-escudo-grid-item img { width:100%; height:100%; object-fit:cover; }
+      .bfr-escudo-grid-item img { width:100%; height:100%; object-fit:contain; border-radius:50%; }
 
       .bfr-foto-td { padding:3px 6px !important; text-align:center; }
       .bfr-foto-upload {
