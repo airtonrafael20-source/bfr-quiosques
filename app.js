@@ -349,6 +349,7 @@ function migrateEscudos(st) {
     escudoAdversarioCamisa: st.escudoAdversarioCamisa || "",
     customTeamLogos: st.customTeamLogos || {},
     hiddenStaticLogos: st.hiddenStaticLogos || [],
+    ...migrarControles(st),
     rncs: Array.isArray(st.rncs) ? st.rncs : st.rncs ? Object.values(st.rncs) : [],
     history: Array.isArray(st.history) ? st.history : st.history ? Object.values(st.history) : [],
     responsavelSeparacao: responsavelSeparacao || "Rafael"
@@ -581,6 +582,12 @@ function AppShell({ authUser, onLogout }) {
   const [activeTab, setActiveTab] = useState("DASHBOARD");
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState(null);
+  const [posJogo, setPosJogo] = useState(null);
+  useEffect(() => {
+    if (!state || !state.kiosks) return;
+    const faltando = Object.keys(state.kiosks).filter((n) => !String((state.kiosks[n] && state.kiosks[n].numeroControle) || "").trim());
+    if (faltando.length) setState((s) => preencherControles(s));
+  }, [state]);
   const askConfirm = (message) => new Promise((resolve) => {
     setDialog({ type: "confirm", message, resolve });
   });
@@ -723,7 +730,7 @@ function AppShell({ authUser, onLogout }) {
     });
   };
   const clearAllTeamLogos = () => {
-    setState((s) => ({ ...s, customTeamLogos: {}, hiddenStaticLogos: Object.keys(TEAM_LOGOS) }));
+    setState((s) => ({ ...s, customTeamLogos: {}, hiddenStaticLogos: Object.keys(TEAM_LOGOS), escudoAdversario: "", escudoAdversarioCamisa: "" }));
   };
 
   const restoreStaticLogos = () => {
@@ -773,7 +780,7 @@ function AppShell({ authUser, onLogout }) {
     if (!name) return;
     setState((s) => {
       if (s.kiosks[name]) return s;
-      const newKiosk = { ...emptyKiosk(), data: todayBR(), numeroControle: controlNumberFor(s.order.length) };
+      const newKiosk = { ...emptyKiosk(), data: todayBR(), numeroControle: "" };
       return { ...s, order: [...s.order, name], kiosks: { ...s.kiosks, [name]: newKiosk } };
     });
     setActiveTab(name);
@@ -813,17 +820,11 @@ function AppShell({ authUser, onLogout }) {
   const clearAllKiosks = async () => {
     const total = Object.keys(state.kiosks).length;
     const ok = await askConfirm(
-      `Limpar os itens de TODOS os quiosques (${total})? Responsável, jogo, data e nº controle são mantidos — só as listas de produtos são apagadas. Essa ação não pode ser desfeita.`
+      `Começar um jogo novo? Isto limpa os itens dos ${total} quiosques, o nome do jogo, o escudo e a camisa do adversário, e gera novos números de controle (a data volta para hoje). Ficam: o escudo do Botafogo, a lista de times, responsável, rádio e máquina de cada quiosque.` + ((state.rncs || []).length ? ` Atenção: há ${(state.rncs || []).length} RNC(s) registradas — elas NÃO são apagadas (para guardá-las use “Encerrar jogo e arquivar” na aba RNC).` : "") + " Essa ação não pode ser desfeita."
     );
     if (!ok) return;
-    setState((s) => {
-      const kiosks = {};
-      Object.keys(s.kiosks).forEach((n) => {
-        kiosks[n] = { ...s.kiosks[n], items: [] };
-      });
-      return { ...s, kiosks };
-    });
-    setToast("Todos os quiosques foram limpos. Pronto para importar os novos arquivos.");
+    setState((s) => novoJogoLimpo(s));
+    setToast("Jogo novo: quiosques, nome do jogo e escudo do adversário limpos. Pronto para importar os novos arquivos.");
   };
 
   const clearKioskItems = async (name) => {
@@ -1006,6 +1007,56 @@ function AppShell({ authUser, onLogout }) {
     }
     return null;
   };
+  const gerarControle = (name) => {
+    setState((s) => {
+      const k = s.kiosks[name];
+      if (!k) return s;
+      const seq = { ...(s.controleSeq || {}) };
+      seq[name] = (seq[name] || 0) + 1;
+      return { ...s, controleSeq: seq, kiosks: { ...s.kiosks, [name]: { ...k, numeroControle: gerarNumeroControle(name, k.data, seq[name]) } } };
+    });
+    setToast("Novo número de controle gerado para " + name + ".");
+  };
+
+  const openPosJogo = async (kioskName, file) => {
+    try {
+      if (/\.pdf$/i.test(file.name)) {
+        setToast("Para o pós-jogo use o arquivo .xlsx / .xls exportado do sistema (PDF não é suportado aqui).");
+        return;
+      }
+      let rows;
+      const sample = await file.slice(0, 4000).text();
+      if (isHtmlContent(sample)) {
+        rows = parseHtmlTableToRows(await file.text());
+      } else {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array", cellDates: true });
+        const sn = wb.SheetNames.find((n) => n.trim().toUpperCase() !== "DASHBOARD") || wb.SheetNames[0];
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "" });
+      }
+      const parsed = parseSimpleExportRows(rows);
+      if (!parsed) {
+        setToast("Não reconheci as colunas do arquivo: preciso de uma coluna de produto/nome e uma de saldo/quantidade.");
+        return;
+      }
+      setPosJogo({ kioskName, fileName: file.name, titulo: tituloDoArquivo(rows), colunas: detectarColunas(rows), itens: parsed.items });
+    } catch (e) {
+      console.error("Erro ao ler pós-jogo", e);
+      setToast("Não consegui ler o arquivo do pós-jogo.");
+    }
+  };
+
+  const applyPosJogo = (kioskName, patch, rncList, casados) => {
+    setState((s) => {
+      const k = s.kiosks[kioskName];
+      if (!k) return s;
+      return { ...s, kiosks: { ...s.kiosks, [kioskName]: { ...k, items: (k.items || []).map((it) => (it.id && patch[it.id] ? { ...it, ...patch[it.id] } : it)) } } };
+    });
+    (rncList || []).forEach((r) => addRnc(r));
+    setPosJogo(null);
+    setToast("Pós-jogo aplicado em " + kioskName + ": " + casados + " itens atualizados" + ((rncList || []).length ? " e " + rncList.length + " RNC(s) criadas" : "") + ".");
+  };
+
   const handleImportFiles = async (fileList) => {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
@@ -1115,7 +1166,7 @@ function AppShell({ authUser, onLogout }) {
   if (loading || !state) {
     return /* @__PURE__ */ React.createElement("div", { className: "bfr-root bfr-loading" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 64 }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 16, fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em" } }, "CARREGANDO CONTROLE DE QUIOSQUES\u2026"));
   }
-  return /* @__PURE__ */ React.createElement("div", { className: "bfr-root" }, /* @__PURE__ */ React.createElement(GlobalStyle, null), /* @__PURE__ */ React.createElement(Toast, { message: toast, onClose: () => setToast("") }), /* @__PURE__ */ React.createElement(ConfirmDialog, { dialog, onClose: closeDialog }), /* @__PURE__ */ React.createElement("header", { className: "bfr-header no-print" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-header-left" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 46 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosques"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-header-right" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sync-dot", title: savedTick ? `Salvo \xE0s ${new Date(savedTick).toLocaleTimeString("pt-BR")}` : "Sincronizando..." }), /* @__PURE__ */ React.createElement("span", { className: "bfr-sync-label" }, savedTick ? `Sincronizado ${new Date(savedTick).toLocaleTimeString("pt-BR")}` : "Sincronizando\u2026"), /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "bfr-root" }, /* @__PURE__ */ React.createElement(GlobalStyle, null), /* @__PURE__ */ React.createElement(Toast, { message: toast, onClose: () => setToast("") }), /* @__PURE__ */ React.createElement(ConfirmDialog, { dialog, onClose: closeDialog }), posJogo && /* @__PURE__ */ React.createElement(PosJogoModal, { info: posJogo, state, onApply: applyPosJogo, onCancel: () => setPosJogo(null) }), /* @__PURE__ */ React.createElement("header", { className: "bfr-header no-print" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-header-left" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 46 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosques"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-header-right" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sync-dot", title: savedTick ? `Salvo \xE0s ${new Date(savedTick).toLocaleTimeString("pt-BR")}` : "Sincronizando..." }), /* @__PURE__ */ React.createElement("span", { className: "bfr-sync-label" }, savedTick ? `Sincronizado ${new Date(savedTick).toLocaleTimeString("pt-BR")}` : "Sincronizando\u2026"), /* @__PURE__ */ React.createElement(
     "input",
     {
       ref: fileInputRef,
@@ -1181,6 +1232,13 @@ function AppShell({ authUser, onLogout }) {
       onHideStaticLogo: hideStaticLogo,
       onClearAllLogos: clearAllTeamLogos,
       onRestoreStaticLogos: restoreStaticLogos,
+      rncs: state.rncs,
+      onGenerateControle: gerarControle,
+      onPickPosJogo: openPosJogo,
+      onAddRnc: addRnc,
+      onToggleRnc: toggleRnc,
+      onDeleteRnc: deleteRnc,
+      setToast,
       askConfirm
     }
   )), /* @__PURE__ */ React.createElement("footer", { className: "bfr-footer no-print" }, "Botafogo Store \xB7 Controle de Quiosques \u2014 dados salvos automaticamente"));
@@ -1222,9 +1280,19 @@ function KioskView({
   onHideStaticLogo,
   onClearAllLogos,
   onRestoreStaticLogos,
-  askConfirm
+  askConfirm,
+  rncs,
+  onAddRnc,
+  onToggleRnc,
+  onDeleteRnc,
+  setToast,
+  onGenerateControle,
+  onPickPosJogo
 }) {
+  const [rncDraft, setRncDraft] = useState(null);
   if (!kiosk) return null;
+  const kioskRncs = (rncs || []).filter((r) => r.quiosque === name);
+  const requestRncForItem = (it) => setRncDraft(draftFromItem(it, name));
   const sortedItems = kiosk.items;
   const byCategory = useMemo(() => {
     const map = {};
@@ -1241,7 +1309,7 @@ function KioskView({
     return map;
   }, [kiosk.items]);
   const cats = Object.keys(byCategory).sort((a, b) => categoryRank(a) - categoryRank(b));
-  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name, /* @__PURE__ */ React.createElement(DivergenciasBadge, { items: kiosk.items })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field" }, /* @__PURE__ */ React.createElement("span", null, "Respons\xE1vel Separa\xE7\xE3o *"), /* @__PURE__ */ React.createElement("select", { className: "bfr-input", value: responsavelSeparacao || "Rafael", onChange: (e) => onResponsavelChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Rafael" }, "Rafael"), /* @__PURE__ */ React.createElement("option", { value: "Geovani" }, "Geovani"))), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name, /* @__PURE__ */ React.createElement(DivergenciasBadge, { items: kiosk.items })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement(KioskHeaderButtons, { rncCount: kioskRncs.length, onPick: onPickPosJogo, kioskName: name }), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field" }, /* @__PURE__ */ React.createElement("span", null, "Respons\xE1vel Separa\xE7\xE3o *"), /* @__PURE__ */ React.createElement("select", { className: "bfr-input", value: responsavelSeparacao || "Rafael", onChange: (e) => onResponsavelChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Rafael" }, "Rafael"), /* @__PURE__ */ React.createElement("option", { value: "Geovani" }, "Geovani"))), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
     AdversarioEscudoPicker,
     {
       value: escudoCasa,
@@ -1275,7 +1343,7 @@ function KioskView({
       askConfirm,
       titulo: "Escolher time adversário"
     }
-  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id, className: itemDivergencias(it).length ? "bfr-row-alert" : "", title: itemDivergencias(it).join(" \u2022 ") }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(ControleField, { value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v), onGenerate: () => onGenerateControle(name) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA do R\xE1dio", value: kiosk.radio || "", onChange: (v) => onMeta("radio", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA M\xE1quina de Venda", value: kiosk.maquina || "", onChange: (v) => onMeta("maquina", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id, className: itemDivergencias(it).length ? "bfr-row-alert" : "", title: itemDivergencias(it).join(" \u2022 ") }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -1315,7 +1383,7 @@ function KioskView({
       value: it.reposicao,
       onChange: (e) => onItemField(it.id, "reposicao", e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
+  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement(RowRncButton, { it, rncs: kioskRncs, onRequest: requestRncForItem }), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement(KioskRncPanel, { name, kiosk, rncs: kioskRncs, responsavel: responsavelSeparacao, draft: rncDraft && rncDraft.quiosque === name ? rncDraft : null, onDraftDone: () => setRncDraft(null), onAdd: onAddRnc, onToggle: onToggleRnc, onDelete: onDeleteRnc, askConfirm, setToast }), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
 }
 function resizeImageToDataUrl(file, maxDim, quality) {
   return new Promise((resolve, reject) => {
@@ -1470,7 +1538,7 @@ function AdversarioEscudoPicker({
             type: "button",
             className: "bfr-escudo-link-btn",
             onClick: async () => {
-              const ok = await askConfirm("Limpar TODOS os escudos da lista (os que voc\xEA enviou e os padr\xE3o)? O escudo do Botafogo e os que j\xE1 est\xE3o escolhidos na tela continuam. D\xE1 para restaurar os padr\xE3o depois.");
+              const ok = await askConfirm("Limpar TODOS os escudos da lista (os que voc\xEA enviou e os padr\xE3o)? O escudo e a camisa do advers\xE1rio escolhidos tamb\xE9m ser\xE3o limpos; o escudo do Botafogo continua. D\xE1 para restaurar os padr\xE3o depois.");
               if (ok) onClearAllLogos();
             }
           }, "\u{1F5D1} Limpar todos"),
@@ -1595,7 +1663,7 @@ function makeGameSnapshot(state, withPhotos) {
       if (itemDivergencias(it).length) divergencias += 1;
     });
     tEnv += enviada; tDev += devolucao; tRep += reposicao; tVend += vendido; tDiv += divergencias;
-    return { name, numeroControle: k.numeroControle || "", itens: (k.items || []).length, enviada, devolucao, reposicao, vendido, divergencias };
+    return { name, numeroControle: k.numeroControle || "", radio: k.radio || "", maquina: k.maquina || "", itens: (k.items || []).length, enviada, devolucao, reposicao, vendido, divergencias };
   });
   const first = state.kiosks[names[0]] || {};
   const rncs = (state.rncs || []).map((r) => {
@@ -1624,7 +1692,7 @@ function buildReportText(snap) {
   L.push("*Resumo por quiosque*");
   snap.kiosks.forEach((k) => {
     L.push(
-      "• " + k.name + ": enviada " + k.enviada + " | devolvida " + k.devolucao + " | reposição " + k.reposicao + " | vendido (est.) " + k.vendido +
+      "• " + k.name + (k.numeroControle ? " [" + k.numeroControle + "]" : "") + (k.radio || k.maquina ? " (" + (k.radio ? "Rádio " + k.radio : "") + (k.radio && k.maquina ? " · " : "") + (k.maquina ? "Máquina " + k.maquina : "") + ")" : "") + ": enviada " + k.enviada + " | devolvida " + k.devolucao + " | reposição " + k.reposicao + " | vendido (est.) " + k.vendido +
         (k.divergencias ? "  ⚠ " + k.divergencias + " divergência(s)" : "")
     );
   });
@@ -1701,15 +1769,21 @@ function buildReportPdf(JsPDF, snap) {
   drawHead();
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
   snap.kiosks.forEach((k) => {
-    ensure(7);
+    const extra = [k.numeroControle, k.radio ? "Rádio " + k.radio : "", k.maquina ? "Máquina " + k.maquina : ""].filter(Boolean).join("  ·  ");
+    const rowH = extra ? 10.5 : 6.5;
+    ensure(rowH + 1);
     doc.setTextColor(30, 30, 30);
     doc.text(String(k.name), M + 1.5, y);
+    if (extra) {
+      doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.text(extra, M + 1.5, y + 3.7);
+      doc.setFontSize(9.5); doc.setTextColor(30, 30, 30);
+    }
     [k.enviada, k.devolucao, k.reposicao, k.vendido, k.divergencias].forEach((v, i) => {
       if (i === 4 && v) doc.setTextColor(176, 43, 43);
       doc.text(String(v), RX[i], y, { align: "right" });
     });
-    doc.setDrawColor(220, 220, 220); doc.line(M, y + 2, W - M, y + 2);
-    y += 6.5;
+    doc.setDrawColor(220, 220, 220); doc.line(M, y + rowH - 4.5, W - M, y + rowH - 4.5);
+    y += rowH;
   });
   ensure(9);
   const t = snap.totais;
@@ -1847,8 +1921,10 @@ function RncView({ state, onAdd, onToggle, onDelete, onCloseGame, askConfirm, se
   const names = (state.order || []).filter((n) => state.kiosks[n]);
   const [form, setForm] = useState({ quiosque: "Geral", tipo: RNC_TIPOS[0], produto: "", tamanho: "", qtd: "", descricao: "", acao: "", responsavel: state.responsavelSeparacao || "", foto: "" });
   const fileRef = useRef(null);
+  const [filtro, setFiltro] = useState("Todos");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const rncs = state.rncs || [];
+  const rncsVis = filtro === "Todos" ? rncs : rncs.filter((r) => (r.quiosque || "Geral") === filtro);
   const snap = useMemo(() => makeGameSnapshot(state, true), [state]);
   const texto = useMemo(() => buildReportText(snap), [snap]);
   useEffect(() => { loadJsPdf().catch(() => {}); }, []);
@@ -1865,13 +1941,14 @@ function RncView({ state, onAdd, onToggle, onDelete, onCloseGame, askConfirm, se
     { className: "bfr-rnc-wrap" },
     __h("h2", { className: "bfr-kiosk-name" }, "RNC — REGISTRO DE NÃO CONFORMIDADE"),
     __h("div", { className: "bfr-rnc-meta" }, "Jogo: " + (snap.jogo || "-") + "  ·  Data: " + (snap.data || "-") + "  ·  Responsável: " + (snap.responsavel || "-")),
+    __h("div", { className: "bfr-rnc-meta" }, "Visão geral: reúne as RNCs de todos os quiosques e de outros locais (“Geral”). Cada quiosque também tem o seu próprio campo de RNC, dentro da aba dele."),
 
     __h(
       "div",
       { className: "bfr-rnc-panel" },
       __h("div", { className: "bfr-rnc-grid" },
         F("Quiosque", __h("select", { className: "bfr-input", value: form.quiosque, onChange: (e) => set("quiosque", e.target.value) },
-          __h("option", { value: "Geral" }, "Geral (todos)"),
+          __h("option", { value: "Geral" }, "Geral / outros locais"),
           names.map((n) => __h("option", { key: n, value: n }, n)))),
         F("Tipo", __h("select", { className: "bfr-input", value: form.tipo, onChange: (e) => set("tipo", e.target.value) },
           RNC_TIPOS.map((t) => __h("option", { key: t, value: t }, t)))),
@@ -1896,9 +1973,15 @@ function RncView({ state, onAdd, onToggle, onDelete, onCloseGame, askConfirm, se
       } })
     ),
 
-    __h("h3", { className: "bfr-section-title" }, "Registros deste jogo (" + rncs.length + ")"),
-    rncs.length === 0 && __h("div", { className: "bfr-rnc-meta" }, "Nenhuma RNC registrada ainda."),
-    rncs.map((r) =>
+    __h("h3", { className: "bfr-section-title" }, "Registros deste jogo (" + rncsVis.length + (filtro !== "Todos" ? " de " + rncs.length : "") + ")"),
+    __h("div", { className: "bfr-rnc-actions no-print", style: { marginTop: 0 } },
+      __h("span", { className: "bfr-rnc-meta" }, "Mostrar:"),
+      __h("select", { className: "bfr-input", style: { maxWidth: 240 }, value: filtro, onChange: (e) => setFiltro(e.target.value) },
+        __h("option", { value: "Todos" }, "Todos os locais"),
+        __h("option", { value: "Geral" }, "Geral / outros locais"),
+        names.map((nm) => __h("option", { key: nm, value: nm }, nm)))),
+    rncsVis.length === 0 && __h("div", { className: "bfr-rnc-meta" }, "Nenhuma RNC registrada ainda."),
+    rncsVis.map((r) =>
       __h("div", { key: r.id, className: "bfr-rnc-card" + (r.resolvida ? " resolvida" : "") },
         __h("div", { style: { flex: 1, minWidth: 0 } },
           __h("div", null, __h("span", { className: "bfr-rnc-tag" }, r.tipo || "Outro"), __h("strong", null, r.quiosque || "Geral"), r.resolvida && __h("span", { style: { marginLeft: 8, color: "#6fcf97" } }, "✅ resolvida")),
@@ -1965,6 +2048,331 @@ function HistoryView({ history, onDelete, askConfirm, setToast }) {
         )
       )
     )
+  );
+}
+
+
+/* ===================== RNC DENTRO DE CADA QUIOSQUE ===================== */
+function rncItemKey(it) { return it.id || ((it.produto || "") + "|" + (it.tamanho || "")); }
+
+function draftFromItem(it, quiosque) {
+  const env = toNum(it.qtdEnviada), conf = toNum(it.confPreJogo);
+  return {
+    quiosque,
+    itemKey: rncItemKey(it),
+    tipo: "Divergência de contagem",
+    produto: it.produto || "",
+    tamanho: it.tamanho || "",
+    qtd: conf > 0 && conf !== env ? String(Math.abs(conf - env)) : "",
+    descricao: itemDivergencias(it).join("; "),
+  };
+}
+
+function makeKioskSnapshot(name, k, rncs, responsavel) {
+  let enviada = 0, devolucao = 0, reposicao = 0, vendido = 0, divergencias = 0;
+  (k.items || []).forEach((it) => {
+    enviada += toNum(it.qtdEnviada); devolucao += toNum(it.devolucaoPosJogo); reposicao += toNum(it.reposicao);
+    vendido += vendidoEstimado(it);
+    if (itemDivergencias(it).length) divergencias += 1;
+  });
+  return {
+    jogo: String(k.jogo || "").trim(),
+    data: k.data || "",
+    responsavel: responsavel || "",
+    kiosks: [{ name, numeroControle: k.numeroControle || "", radio: k.radio || "", maquina: k.maquina || "", itens: (k.items || []).length, enviada, devolucao, reposicao, vendido, divergencias }],
+    rncs: rncs || [],
+    totais: { enviada, devolucao, reposicao, vendido, divergencias },
+    geradoEm: Date.now(),
+  };
+}
+
+function RowRncButton({ it, rncs, onRequest }) {
+  const divs = itemDivergencias(it);
+  if (!divs.length) return null;
+  const key = rncItemKey(it);
+  if ((rncs || []).some((r) => r.itemKey === key)) {
+    return __h("span", { className: "bfr-rnc-ok no-print", title: "RNC já registrada para este item" }, "RNC ✓");
+  }
+  return __h("button", { type: "button", className: "bfr-rnc-req no-print", title: divs.join(" • "), onClick: () => onRequest(it) }, "⚠ RNC");
+}
+
+function KioskRncPanel({ name, kiosk, rncs, responsavel, draft, onDraftDone, onAdd, onToggle, onDelete, askConfirm, setToast }) {
+  const blank = { tipo: RNC_TIPOS[0], produto: "", tamanho: "", qtd: "", descricao: "", acao: "", foto: "", itemKey: "" };
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(blank);
+  const ref = useRef(null);
+  const fileRef = useRef(null);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const items = kiosk.items || [];
+  const pendentes = items.filter((it) => itemDivergencias(it).length > 0 && !rncs.some((r) => r.itemKey === rncItemKey(it)));
+  const snap = useMemo(() => makeKioskSnapshot(name, kiosk, rncs, responsavel), [name, kiosk, rncs, responsavel]);
+
+  useEffect(() => {
+    if (!draft) return;
+    setOpen(true);
+    setForm({ ...blank, tipo: draft.tipo, produto: draft.produto, tamanho: draft.tamanho, qtd: draft.qtd, descricao: draft.descricao, itemKey: draft.itemKey });
+    setTimeout(() => { if (ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+    if (onDraftDone) onDraftDone();
+  }, [draft]);
+
+  const base = () => ({ quiosque: name, responsavel: responsavel || "", jogo: kiosk.jogo || "", data: kiosk.data || "" });
+  const submit = () => {
+    if (!form.descricao.trim()) return;
+    onAdd({ ...base(), tipo: form.tipo, produto: form.produto.trim(), tamanho: form.tamanho.trim(), qtd: form.qtd, descricao: form.descricao.trim(), acao: form.acao.trim(), foto: form.foto, itemKey: form.itemKey });
+    setForm(blank);
+    setOpen(false);
+  };
+  const gerarTodas = async () => {
+    const ok = await askConfirm("Gerar " + pendentes.length + " RNC(s) automaticamente, uma para cada item divergente de " + name + "? Depois você pode completar a ação tomada em cada uma.");
+    if (!ok) return;
+    pendentes.forEach((it) => { const d = draftFromItem(it, name); onAdd({ ...base(), tipo: d.tipo, produto: d.produto, tamanho: d.tamanho, qtd: d.qtd, descricao: d.descricao, acao: "", foto: "", itemKey: d.itemKey }); });
+  };
+  const F = (label, child) => __h("label", { className: "bfr-meta-field" }, __h("span", null, label), child);
+
+  return __h(
+    "div",
+    { className: "bfr-rnc-panel no-print", style: { marginTop: 22 }, ref, id: "bfr-kiosk-rnc-panel" },
+    __h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" } },
+      __h("h3", { className: "bfr-section-title", style: { margin: 0, border: "none" } }, "📋 RNC deste quiosque (" + rncs.length + ")"),
+      __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", onClick: () => setOpen((o) => !o) }, open ? "Fechar formulário" : "+ Nova RNC")
+    ),
+    pendentes.length > 0 && __h("div", { style: { marginTop: 10 } },
+      __h("div", { className: "bfr-rnc-meta", style: { color: "#f0a0a0" } }, "⚠ " + pendentes.length + (pendentes.length === 1 ? " item divergente sem RNC" : " itens divergentes sem RNC")),
+      pendentes.slice(0, 8).map((it) =>
+        __h("div", { key: rncItemKey(it), className: "bfr-rnc-pend" },
+          __h("span", null, (it.produto || "(sem nome)") + (it.tamanho ? " · " + it.tamanho : "") + " — " + itemDivergencias(it).join("; ")),
+          __h("button", { type: "button", className: "bfr-rnc-req", onClick: () => { const d = draftFromItem(it, name); setOpen(true); setForm({ ...blank, tipo: d.tipo, produto: d.produto, tamanho: d.tamanho, qtd: d.qtd, descricao: d.descricao, itemKey: d.itemKey }); } }, "Abrir RNC"))),
+      pendentes.length > 8 && __h("div", { className: "bfr-rnc-meta" }, "… e mais " + (pendentes.length - 8) + " (veja as linhas em vermelho na tabela)."),
+      __h("div", { className: "bfr-rnc-actions" }, __h("button", { type: "button", className: "bfr-btn", onClick: gerarTodas }, "Gerar RNC de todos os divergentes (" + pendentes.length + ")"))
+    ),
+    open && __h("div", { style: { marginTop: 12 } },
+      __h("div", { className: "bfr-rnc-grid" },
+        F("Tipo", __h("select", { className: "bfr-input", value: form.tipo, onChange: (e) => set("tipo", e.target.value) }, RNC_TIPOS.map((t) => __h("option", { key: t, value: t }, t)))),
+        F("Produto (opcional)", __h("input", { className: "bfr-input", value: form.produto, onChange: (e) => set("produto", e.target.value) })),
+        F("Tamanho", __h("input", { className: "bfr-input", value: form.tamanho, onChange: (e) => set("tamanho", e.target.value) })),
+        F("Quantidade", __h("input", { className: "bfr-input", value: form.qtd, onChange: (e) => set("qtd", e.target.value) }))
+      ),
+      __h("div", { style: { marginTop: 10 } }, F("O que aconteceu *", __h("textarea", { className: "bfr-rnc-textarea", value: form.descricao, onChange: (e) => set("descricao", e.target.value) }))),
+      __h("div", { style: { marginTop: 10 } }, F("Ação tomada / a tomar", __h("textarea", { className: "bfr-rnc-textarea", style: { minHeight: 56 }, value: form.acao, onChange: (e) => set("acao", e.target.value) }))),
+      __h("div", { className: "bfr-rnc-actions" },
+        __h("button", { type: "button", className: "bfr-btn", onClick: () => fileRef.current && fileRef.current.click() }, form.foto ? "📷 Trocar foto" : "📷 Anexar foto"),
+        form.foto && __h("img", { src: form.foto, alt: "Foto anexada", className: "bfr-rnc-foto" }),
+        __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", disabled: !form.descricao.trim(), onClick: submit }, "Salvar RNC")
+      ),
+      __h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: async (e) => {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        set("foto", await resizeImageToDataUrl(f, 480, 0.6));
+      } })
+    ),
+    rncs.length === 0 && !open && pendentes.length === 0 && __h("div", { className: "bfr-rnc-meta" }, "Nenhuma RNC neste quiosque. Use “+ Nova RNC” ou o botão ⚠ RNC nas linhas divergentes da tabela."),
+    rncs.map((r) =>
+      __h("div", { key: r.id, className: "bfr-rnc-card" + (r.resolvida ? " resolvida" : ""), style: { marginTop: 10 } },
+        __h("div", { style: { flex: 1, minWidth: 0 } },
+          __h("div", null, __h("span", { className: "bfr-rnc-tag" }, r.tipo || "Outro"), r.resolvida && __h("span", { style: { color: "#6fcf97" } }, "✅ resolvida")),
+          (r.produto || r.qtd) && __h("div", { className: "bfr-rnc-meta" }, (r.produto || "") + (r.tamanho ? " · Tam. " + r.tamanho : "") + (r.qtd ? " · Qtd " + r.qtd : "")),
+          __h("div", null, r.descricao),
+          r.acao && __h("div", { className: "bfr-rnc-meta" }, "Ação: " + r.acao),
+          __h("div", { className: "bfr-rnc-meta" }, (r.responsavel ? r.responsavel + " · " : "") + new Date(r.createdAt || Date.now()).toLocaleString("pt-BR"))
+        ),
+        r.foto && __h("img", { src: r.foto, alt: "Foto da RNC", className: "bfr-rnc-foto" }),
+        __h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+          __h("button", { type: "button", className: "bfr-btn", onClick: () => onToggle(r.id) }, r.resolvida ? "Reabrir" : "Resolver"),
+          __h("button", { type: "button", className: "bfr-btn bfr-btn-danger", onClick: async () => { if (await askConfirm("Excluir esta RNC?")) onDelete(r.id); } }, "Excluir"))
+      )
+    ),
+    __h("details", { className: "bfr-hist-game", style: { marginTop: 14 } },
+      __h("summary", null, "Relatório deste quiosque (texto / PDF)"),
+      __h("div", { className: "bfr-hist-body" }, __h(ReportActions, { snap, setToast })))
+  );
+}
+
+
+/* ===================== Nº DE CONTROLE (RASTREIO) ===================== */
+function kioskCode(name) {
+  const parts = String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  if (!parts.length) return "XX";
+  return parts.length > 1 ? parts.map((p) => p[0]).join("").slice(0, 4) : parts[0].slice(0, 3);
+}
+
+function dataCompacta(data) {
+  const m = String(data || "").match(/(\d{1,2})\D+(\d{1,2})\D+(\d{2,4})/);
+  if (m) return m[3].slice(-2) + m[2].padStart(2, "0") + m[1].padStart(2, "0");
+  const d = new Date();
+  return String(d.getFullYear()).slice(-2) + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+}
+
+// ex.: BFR-261109-CL-003 = Camarote Leste, jogo/data 09/11/2026, 3º número gerado para esse quiosque
+function gerarNumeroControle(name, data, seq) {
+  return "BFR-" + dataCompacta(data) + "-" + kioskCode(name) + "-" + String(seq).padStart(3, "0");
+}
+
+function migrarControles(st) {
+  const seq = { ...(st.controleSeq || {}) };
+  const kiosks = st.kiosks || {};
+  if (st.controleSeq !== undefined) return { kiosks, controleSeq: seq };
+  const out = {};
+  Object.keys(kiosks).forEach((nm) => {
+    const k = kiosks[nm];
+    const num = String((k && k.numeroControle) || "").trim();
+    if (k && (!num || /^BFR\d{1,4}$/i.test(num))) {
+      seq[nm] = (seq[nm] || 0) + 1;
+      out[nm] = { ...k, numeroControle: gerarNumeroControle(nm, k.data, seq[nm]) };
+    } else out[nm] = k;
+  });
+  return { kiosks: out, controleSeq: seq };
+}
+
+function preencherControles(s) {
+  const seq = { ...(s.controleSeq || {}) };
+  const kiosks = { ...s.kiosks };
+  Object.keys(kiosks).forEach((nm) => {
+    const k = kiosks[nm];
+    if (!String((k && k.numeroControle) || "").trim()) {
+      seq[nm] = (seq[nm] || 0) + 1;
+      kiosks[nm] = { ...k, numeroControle: gerarNumeroControle(nm, k.data, seq[nm]) };
+    }
+  });
+  return { ...s, kiosks, controleSeq: seq };
+}
+
+// "Limpar todos": começa um jogo novo (itens, jogo, escudo/camisa do adversário limpos; datas e números novos)
+function novoJogoLimpo(s) {
+  const seq = { ...(s.controleSeq || {}) };
+  const kiosks = {};
+  const hoje = todayBR();
+  Object.keys(s.kiosks).forEach((nm) => {
+    const k = s.kiosks[nm];
+    seq[nm] = (seq[nm] || 0) + 1;
+    kiosks[nm] = { ...k, items: [], jogo: "", data: hoje, numeroControle: gerarNumeroControle(nm, hoje, seq[nm]) };
+  });
+  return { ...s, kiosks, controleSeq: seq, escudoAdversario: "", escudoAdversarioCamisa: "" };
+}
+
+function ControleField({ value, onChange, onGenerate }) {
+  return __h("label", { className: "bfr-meta-field" },
+    __h("span", null, "Nº Controle"),
+    __h("div", { style: { display: "flex", gap: 6 } },
+      __h("input", { className: "bfr-input", value: value || "", onChange: (e) => onChange(e.target.value) }),
+      __h("button", { type: "button", className: "bfr-btn no-print", title: "Gerar um novo número de rastreio para este quiosque", onClick: onGenerate, style: { padding: "0 10px" } }, "↻")));
+}
+
+/* ===================== IMPORTAÇÃO DO PÓS-JOGO ===================== */
+function tituloDoArquivo(rows) {
+  for (let i = 0; i < Math.min(3, rows.length); i++) {
+    const r = rows[i] || [];
+    const cheios = r.filter((c) => String(c == null ? "" : c).trim() !== "");
+    if (cheios.length === 1 && !/DESCRI|PRODUTO|NOME|C[ÓO]DIGO/i.test(String(cheios[0]))) return String(cheios[0]).trim();
+  }
+  return "";
+}
+
+function detectarColunas(rows) {
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const header = (rows[i] || []).map((c) => String(c || "").trim());
+    const up = header.map((h) => h.toUpperCase());
+    const ip = up.findIndex((h) => h.includes("PRODUTO") || h.includes("NOME") || h.includes("DESCRIÇÃO") || h.includes("DESCRICAO"));
+    const iq = up.findIndex((h) => h.includes("QUANTIDADE") || h.includes("QTD") || h.includes("SALDO"));
+    if (ip !== -1 && iq !== -1) return { produto: header[ip], qtd: header[iq] };
+  }
+  return { produto: "?", qtd: "?" };
+}
+
+function posNameKey(produto, tamanho) {
+  return normalizeProdutoKey(produto || "") + "|" + String(tamanho || "").trim().toUpperCase();
+}
+
+function matchPosJogo(kioskItems, fileItens) {
+  const entries = fileItens.map((f) => ({
+    codigo: /^\d{6,}$/.test(String(f.codigo || "").trim()) ? String(f.codigo).trim() : "",
+    key: posNameKey(f.produto, f.tamanho),
+    qtd: toNum(f.qtdEnviada),
+    produto: f.produto,
+    tamanho: f.tamanho,
+    used: false,
+  }));
+  const matches = [];
+  kioskItems.forEach((it) => {
+    const cod = /^\d{6,}$/.test(String(it.codigo || "").trim()) ? String(it.codigo).trim() : "";
+    const key = posNameKey(it.produto, it.tamanho);
+    let e = null;
+    if (cod) e = entries.find((x) => !x.used && x.codigo === cod) || null;
+    if (!e) e = entries.find((x) => !x.used && x.key === key) || null;
+    if (e) e.used = true;
+    matches.push({ it, entry: e });
+  });
+  return { matches, naoEstavam: entries.filter((x) => !x.used) };
+}
+
+function PosJogoModal({ info, state, onApply, onCancel }) {
+  const k = state.kiosks[info.kioskName];
+  const [zeroMissing, setZeroMissing] = useState(true);
+  const [criarRnc, setCriarRnc] = useState(false);
+  const res = useMemo(() => (k ? matchPosJogo(k.items || [], info.itens) : { matches: [], naoEstavam: [] }), [k, info]);
+  if (!k) return null;
+  const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const tituloNaoBate = info.titulo && !(norm(info.kioskName).includes(norm(info.titulo)) || norm(info.titulo).includes(norm(info.kioskName)));
+  const casados = res.matches.filter((m) => m.entry).length;
+  const semLinha = res.matches.length - casados;
+  const totalSaldo = res.matches.reduce((a, m) => a + (m.entry ? m.entry.qtd : 0), 0);
+
+  const aplicar = () => {
+    const patch = {};
+    res.matches.forEach(({ it, entry }) => {
+      if (!it.id) return;
+      if (entry) patch[it.id] = { devolucaoPosJogo: entry.qtd };
+      else if (zeroMissing) patch[it.id] = { devolucaoPosJogo: 0 };
+    });
+    const rncs = criarRnc
+      ? res.naoEstavam.map((x) => ({
+          quiosque: info.kioskName, tipo: "Divergência de contagem", produto: x.produto, tamanho: x.tamanho, qtd: String(x.qtd),
+          descricao: "Consta no arquivo do pós-jogo (saldo " + x.qtd + ") mas não está na lista deste quiosque.",
+          acao: "", responsavel: state.responsavelSeparacao || "", jogo: k.jogo || "", data: k.data || "", foto: "", itemKey: "",
+        }))
+      : [];
+    onApply(info.kioskName, patch, rncs, casados);
+  };
+  const cb = (checked, set, texto) => __h("label", { style: { display: "flex", gap: 8, alignItems: "flex-start", marginTop: 8, fontSize: 13, cursor: "pointer" } },
+    __h("input", { type: "checkbox", checked, onChange: (e) => set(e.target.checked), style: { marginTop: 3 } }), __h("span", null, texto));
+
+  return __h("div", { className: "bfr-dialog-overlay no-print" },
+    __h("div", { className: "bfr-dialog-card bfr-pos-card" },
+      __h("div", { className: "bfr-dialog-message", style: { fontWeight: 600 } }, "Importar pós-jogo — " + info.kioskName),
+      __h("div", { className: "bfr-rnc-meta" }, "Arquivo: " + info.fileName + (info.titulo ? "  ·  título: “" + info.titulo + "”" : "")),
+      __h("div", { className: "bfr-rnc-meta" }, "Colunas reconhecidas: produto = “" + info.colunas.produto + "”  ·  quantidade = “" + info.colunas.qtd + "”"),
+      tituloNaoBate && __h("div", { style: { color: "#f0a0a0", fontSize: 13, marginTop: 8 } }, "⚠ O arquivo parece ser de “" + info.titulo + "”, mas você está em “" + info.kioskName + "”. Confira antes de aplicar."),
+      __h("div", { className: "bfr-pos-list" },
+        __h("div", null, "• " + info.itens.length + " linhas no arquivo (saldo total " + totalSaldo + " nos itens encontrados)"),
+        __h("div", null, "• " + casados + " itens deste quiosque encontrados → o saldo vai para a coluna “Devol. Pós-Jogo”"),
+        __h("div", null, "• " + semLinha + " itens do quiosque sem linha no arquivo"),
+        __h("div", null, "• " + res.naoEstavam.length + " linhas do arquivo que não estão neste quiosque"),
+        res.naoEstavam.slice(0, 5).map((x, i) => __h("div", { key: i, className: "bfr-rnc-meta", style: { margin: "2px 0 0 14px" } }, x.produto + (x.tamanho ? " · " + x.tamanho : "") + " (saldo " + x.qtd + ")")),
+        res.naoEstavam.length > 5 && __h("div", { className: "bfr-rnc-meta", style: { marginLeft: 14 } }, "… e mais " + (res.naoEstavam.length - 5))
+      ),
+      cb(zeroMissing, setZeroMissing, "Considerar saldo 0 nos itens do quiosque que não aparecem no arquivo (venderam tudo)"),
+      res.naoEstavam.length > 0 && cb(criarRnc, setCriarRnc, "Criar uma RNC para cada linha do arquivo que não está neste quiosque (" + res.naoEstavam.length + ")"),
+      __h("div", { className: "bfr-rnc-meta", style: { marginTop: 10 } }, "O vendido é calculado: enviada − devolvida + reposição. Itens com divergência ficam em vermelho e podem virar RNC."),
+      __h("div", { className: "bfr-dialog-actions" },
+        __h("button", { type: "button", className: "bfr-btn", onClick: onCancel }, "Cancelar"),
+        __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", onClick: aplicar }, "Aplicar pós-jogo"))
+    )
+  );
+}
+
+function KioskHeaderButtons({ rncCount, onPick, kioskName }) {
+  const ref = useRef(null);
+  return __h(React.Fragment, null,
+    __h("button", { type: "button", className: "bfr-btn", title: "Ir para o campo de RNC deste quiosque", onClick: () => {
+      const el = document.getElementById("bfr-kiosk-rnc-panel");
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } }, "📋 RNC" + (rncCount ? " (" + rncCount + ")" : "")),
+    __h("button", { type: "button", className: "bfr-btn", title: "Importar o arquivo de saldo do sistema depois do jogo: preenche Devol. Pós-Jogo automaticamente", onClick: () => ref.current && ref.current.click() }, "⬇ Importar pós-jogo"),
+    __h("input", { ref, type: "file", accept: ".xlsx,.xls,.csv,.html,.htm", style: { display: "none" }, onChange: (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (f) onPick(kioskName, f);
+    } })
   );
 }
 
@@ -2194,6 +2602,12 @@ function GlobalStyle() {
       .bfr-hist-game { border:1px solid #2a2a2d; border-radius:8px; background:#161618; }
       .bfr-hist-game > summary { cursor:pointer; padding:10px 14px; color:#f0f0ef; font-size:13px; }
       .bfr-hist-body { padding:0 14px 14px; }
+      .bfr-rnc-req { font-size:10px; padding:2px 6px; border:1px solid #b02b2b; color:#f0a0a0; background:transparent; border-radius:4px; cursor:pointer; margin-right:4px; white-space:nowrap; }
+      .bfr-rnc-req:hover { background:rgba(176,43,43,0.25); }
+      .bfr-pos-card { max-width:580px; width:92vw; max-height:90vh; overflow-y:auto; }
+      .bfr-pos-list { margin-top:10px; font-size:13px; line-height:1.7; }
+      .bfr-rnc-ok { font-size:10px; color:#6fcf97; margin-right:4px; white-space:nowrap; }
+      .bfr-rnc-pend { display:flex; gap:10px; align-items:center; justify-content:space-between; border:1px dashed #6b2b2b; border-radius:6px; padding:6px 10px; margin-top:6px; font-size:12.5px; }
       .bfr-escudo-manage-row { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
       .bfr-escudo-link-btn { background:none; border:none; color:#8a8a8e; font-size:11px; cursor:pointer; padding:2px 0; }
       .bfr-escudo-link-btn:hover { color:#fff; }
