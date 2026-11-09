@@ -341,7 +341,18 @@ function migrateEscudos(st) {
       responsavelSeparacao = nome.includes("GEOVAN") ? "Geovani" : "Rafael";
     }
   }
-  return { ...st, escudoCasa: escudoCasa || BOTAFOGO_CREST, escudoAdversario: escudoAdversario || "", escudoAdversarioCamisa: st.escudoAdversarioCamisa || "", customTeamLogos: st.customTeamLogos || {}, responsavelSeparacao: responsavelSeparacao || "Rafael" };
+  return {
+    ...st,
+    escudoCasa: escudoCasa || BOTAFOGO_CREST,
+    escudoCasaCamisa: st.escudoCasaCamisa || "",
+    escudoAdversario: escudoAdversario || "",
+    escudoAdversarioCamisa: st.escudoAdversarioCamisa || "",
+    customTeamLogos: st.customTeamLogos || {},
+    hiddenStaticLogos: st.hiddenStaticLogos || [],
+    rncs: Array.isArray(st.rncs) ? st.rncs : st.rncs ? Object.values(st.rncs) : [],
+    history: Array.isArray(st.history) ? st.history : st.history ? Object.values(st.history) : [],
+    responsavelSeparacao: responsavelSeparacao || "Rafael"
+  };
 }
 const PRODUCT_TYPE_ORDER = [/\bHOME\b/i, /\bTHIRD\b/i, /\bAWAY\b/i, /\bVIAGEM\b/i];
 function productTypeRank(produto) {
@@ -393,7 +404,22 @@ function defaultState() {
   order.forEach((name) => {
     kiosks[name] = makeKioskFromSeed(SEED[name]);
   });
-  return { order, kiosks, catalog: {}, productPhotos: {}, escudoCasa: BOTAFOGO_CREST, escudoAdversario: "", escudoAdversarioCamisa: "", customTeamLogos: {}, responsavelSeparacao: "Rafael", updatedAt: Date.now() };
+  return {
+    order,
+    kiosks,
+    catalog: {},
+    productPhotos: {},
+    escudoCasa: BOTAFOGO_CREST,
+    escudoCasaCamisa: "",
+    escudoAdversario: "",
+    escudoAdversarioCamisa: "",
+    customTeamLogos: {},
+    hiddenStaticLogos: [],
+    rncs: [],
+    history: [],
+    responsavelSeparacao: "Rafael",
+    updatedAt: Date.now()
+  };
 }
 function LoginScreen({ onLogin }) {
   const [user, setUser] = useState("Rafael");
@@ -670,6 +696,17 @@ function AppShell({ authUser, onLogout }) {
     });
   }, []);
   const updateMeta = (name, field, value) => {
+    if (field === "jogo" || field === "data") {
+      // nome do jogo e data valem para todas as abas
+      setState((s) => {
+        const kiosks = {};
+        Object.keys(s.kiosks).forEach((n) => {
+          kiosks[n] = { ...s.kiosks[n], [field]: value };
+        });
+        return { ...s, kiosks };
+      });
+      return;
+    }
     updateKiosk(name, (k) => ({ ...k, [field]: value }));
   };
   const updateEscudo = (field, value) => {
@@ -684,6 +721,17 @@ function AppShell({ authUser, onLogout }) {
       delete next[id];
       return { ...s, customTeamLogos: next };
     });
+  };
+  const clearAllTeamLogos = () => {
+    setState((s) => ({ ...s, customTeamLogos: {}, hiddenStaticLogos: Object.keys(TEAM_LOGOS) }));
+  };
+
+  const restoreStaticLogos = () => {
+    setState((s) => ({ ...s, hiddenStaticLogos: [] }));
+  };
+
+  const hideStaticLogo = (nome) => {
+    setState((s) => ({ ...s, hiddenStaticLogos: Array.from(new Set([...(s.hiddenStaticLogos || []), nome])) }));
   };
   const updateProductPhoto = (produto, dataUrl) => {
     setState((s) => {
@@ -741,6 +789,43 @@ function AppShell({ authUser, onLogout }) {
     });
     setActiveTab("DASHBOARD");
   };
+  const addRnc = (rnc) => {
+    setState((s) => ({ ...s, rncs: [{ ...rnc, id: uid(), createdAt: Date.now(), resolvida: false }, ...(s.rncs || [])] }));
+    setToast("RNC registrada.");
+  };
+  const toggleRnc = (id) => {
+    setState((s) => ({ ...s, rncs: (s.rncs || []).map((r) => (r.id === id ? { ...r, resolvida: !r.resolvida } : r)) }));
+  };
+  const deleteRnc = (id) => {
+    setState((s) => ({ ...s, rncs: (s.rncs || []).filter((r) => r.id !== id) }));
+  };
+  const closeGame = () => {
+    setState((s) => {
+      const entry = { id: uid(), closedAt: Date.now(), ...makeGameSnapshot(s, false) };
+      return { ...s, history: [entry, ...(s.history || [])].slice(0, 60), rncs: [] };
+    });
+    setToast("Jogo arquivado no histórico. Lista de RNCs zerada.");
+  };
+  const deleteHistory = (id) => {
+    setState((s) => ({ ...s, history: (s.history || []).filter((g) => g.id !== id) }));
+  };
+
+  const clearAllKiosks = async () => {
+    const total = Object.keys(state.kiosks).length;
+    const ok = await askConfirm(
+      `Limpar os itens de TODOS os quiosques (${total})? Responsável, jogo, data e nº controle são mantidos — só as listas de produtos são apagadas. Essa ação não pode ser desfeita.`
+    );
+    if (!ok) return;
+    setState((s) => {
+      const kiosks = {};
+      Object.keys(s.kiosks).forEach((n) => {
+        kiosks[n] = { ...s.kiosks[n], items: [] };
+      });
+      return { ...s, kiosks };
+    });
+    setToast("Todos os quiosques foram limpos. Pronto para importar os novos arquivos.");
+  };
+
   const clearKioskItems = async (name) => {
     const ok = await askConfirm(
       `Limpar todos os itens de "${name}"? Os dados de respons\xE1vel, jogo, data e n\xBA controle s\xE3o mantidos \u2014 s\xF3 a lista de produtos \xE9 apagada. Essa a\xE7\xE3o n\xE3o pode ser desfeita.`
@@ -1043,7 +1128,7 @@ function AppShell({ authUser, onLogout }) {
         e.target.value = "";
       }
     }
-  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar Excel"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Na caixa que abrir, escolha 'Salvar como PDF' pra gerar o arquivo e enviar por WhatsApp" }, "\u{1F5B6} Imprimir / Salvar PDF"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar Excel"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: clearAllKiosks, title: "Apagar a lista de produtos de todos os quiosques de uma vez" }, "\u{1F5D1} Limpar todos"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Na caixa que abrir, escolha 'Salvar como PDF' pra gerar o arquivo e enviar por WhatsApp" }, "\u{1F5B6} Imprimir / Salvar PDF"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: `bfr-tab ${activeTab === "DASHBOARD" ? "active" : ""}`,
@@ -1058,7 +1143,7 @@ function AppShell({ authUser, onLogout }) {
       onClick: () => setActiveTab(name)
     },
     name
-  )), /* @__PURE__ */ React.createElement("button", { className: "bfr-tab bfr-tab-add", onClick: addKiosk }, "+ Quiosque")), /* @__PURE__ */ React.createElement("main", { className: "bfr-main" }, activeTab === "DASHBOARD" ? /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__RNC__" ? "active" : ""}`, onClick: () => setActiveTab("__RNC__") }, "\u{1F4CB} RNC" + ((state.rncs || []).length ? ` (${(state.rncs || []).length})` : "")), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__HIST__" ? "active" : ""}`, onClick: () => setActiveTab("__HIST__") }, "\u{1F5C2} Hist\xF3rico"), /* @__PURE__ */ React.createElement("button", { className: "bfr-tab bfr-tab-add", onClick: addKiosk }, "+ Quiosque")), /* @__PURE__ */ React.createElement("main", { className: "bfr-main" }, activeTab === "__RNC__" ? /* @__PURE__ */ React.createElement(RncView, { state, onAdd: addRnc, onToggle: toggleRnc, onDelete: deleteRnc, onCloseGame: closeGame, askConfirm, setToast }) : activeTab === "__HIST__" ? /* @__PURE__ */ React.createElement(HistoryView, { history: state.history || [], onDelete: deleteHistory, askConfirm, setToast }) : activeTab === "DASHBOARD" ? /* @__PURE__ */ React.createElement(
     DashboardView,
     {
       state,
@@ -1075,9 +1160,11 @@ function AppShell({ authUser, onLogout }) {
       kiosk: state.kiosks[activeTab],
       totals: kioskTotals[activeTab],
       escudoCasa: state.escudoCasa,
+      escudoCasaCamisa: state.escudoCasaCamisa,
       escudoAdversario: state.escudoAdversario,
       escudoAdversarioCamisa: state.escudoAdversarioCamisa,
       customTeamLogos: state.customTeamLogos,
+      hiddenStaticLogos: state.hiddenStaticLogos,
       productPhotos: state.productPhotos,
       responsavelSeparacao: state.responsavelSeparacao,
       onMeta: (field, value) => updateMeta(activeTab, field, value),
@@ -1091,6 +1178,9 @@ function AppShell({ authUser, onLogout }) {
       onPhotoChange: (produto, dataUrl) => updateProductPhoto(produto, dataUrl),
       onAddCustomLogo: addCustomTeamLogo,
       onDeleteCustomLogo: deleteCustomTeamLogo,
+      onHideStaticLogo: hideStaticLogo,
+      onClearAllLogos: clearAllTeamLogos,
+      onRestoreStaticLogos: restoreStaticLogos,
       askConfirm
     }
   )), /* @__PURE__ */ React.createElement("footer", { className: "bfr-footer no-print" }, "Botafogo Store \xB7 Controle de Quiosques \u2014 dados salvos automaticamente"));
@@ -1111,9 +1201,11 @@ function KioskView({
   kiosk,
   totals,
   escudoCasa,
+  escudoCasaCamisa,
   escudoAdversario,
   escudoAdversarioCamisa,
   customTeamLogos,
+  hiddenStaticLogos,
   productPhotos,
   responsavelSeparacao,
   onMeta,
@@ -1127,6 +1219,9 @@ function KioskView({
   onResponsavelChange,
   onAddCustomLogo,
   onDeleteCustomLogo,
+  onHideStaticLogo,
+  onClearAllLogos,
+  onRestoreStaticLogos,
   askConfirm
 }) {
   if (!kiosk) return null;
@@ -1146,13 +1241,22 @@ function KioskView({
     return map;
   }, [kiosk.items]);
   const cats = Object.keys(byCategory).sort((a, b) => categoryRank(a) - categoryRank(b));
-  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field" }, /* @__PURE__ */ React.createElement("span", null, "Respons\xE1vel Separa\xE7\xE3o *"), /* @__PURE__ */ React.createElement("select", { className: "bfr-input", value: responsavelSeparacao || "Rafael", onChange: (e) => onResponsavelChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Rafael" }, "Rafael"), /* @__PURE__ */ React.createElement("option", { value: "Geovani" }, "Geovani"))), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
-    EscudoUpload,
+  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-head" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Controle de Abastecimento de Quiosque"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-kiosk-name" }, "QUIOSQUE: ", name, /* @__PURE__ */ React.createElement(DivergenciasBadge, { items: kiosk.items })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sheet-actions no-print" }, /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onClearItems }, "Limpar itens"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: onRemoveKiosk }, "Remover quiosque"))), /* @__PURE__ */ React.createElement("div", { className: "bfr-meta-grid" }, /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field" }, /* @__PURE__ */ React.createElement("span", null, "Respons\xE1vel Separa\xE7\xE3o *"), /* @__PURE__ */ React.createElement("select", { className: "bfr-input", value: responsavelSeparacao || "Rafael", onChange: (e) => onResponsavelChange(e.target.value) }, /* @__PURE__ */ React.createElement("option", { value: "Rafael" }, "Rafael"), /* @__PURE__ */ React.createElement("option", { value: "Geovani" }, "Geovani"))), /* @__PURE__ */ React.createElement("label", { className: "bfr-meta-field", style: { gridColumn: "span 1" } }, /* @__PURE__ */ React.createElement("span", null, "Jogo / Advers\xE1rio"), /* @__PURE__ */ React.createElement("div", { className: "bfr-jogo-row" }, /* @__PURE__ */ React.createElement(
+    AdversarioEscudoPicker,
     {
       value: escudoCasa,
-      titulo: "Adicionar escudo do time da casa (vale para todas as abas)",
-      alt: "Escudo do time da casa",
-      onChange: (dataUrl) => onEscudoChange("escudoCasa", dataUrl)
+      camisaValue: escudoCasaCamisa,
+      onChange: (dataUrl) => onEscudoChange("escudoCasa", dataUrl),
+      onCamisaChange: (dataUrl) => onEscudoChange("escudoCasaCamisa", dataUrl),
+      customLogos: customTeamLogos,
+      hiddenStaticLogos,
+      onAddCustomLogo,
+      onDeleteCustomLogo,
+      onHideStaticLogo,
+      onClearAllLogos,
+      onRestoreStaticLogos,
+      askConfirm,
+      titulo: "Escolher escudo da casa"
     }
   ), /* @__PURE__ */ React.createElement("span", { className: "bfr-jogo-x" }, "\xD7"), /* @__PURE__ */ React.createElement(
     AdversarioEscudoPicker,
@@ -1162,11 +1266,16 @@ function KioskView({
       onChange: (dataUrl) => onEscudoChange("escudoAdversario", dataUrl),
       onCamisaChange: (dataUrl) => onEscudoChange("escudoAdversarioCamisa", dataUrl),
       customLogos: customTeamLogos,
+      hiddenStaticLogos,
       onAddCustomLogo,
       onDeleteCustomLogo,
-      askConfirm
+      onHideStaticLogo,
+      onClearAllLogos,
+      onRestoreStaticLogos,
+      askConfirm,
+      titulo: "Escolher time adversário"
     }
-  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA Controle", value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id, className: itemDivergencias(it).length ? "bfr-row-alert" : "", title: itemDivergencias(it).join(" \u2022 ") }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -1264,9 +1373,14 @@ function AdversarioEscudoPicker({
   onChange,
   onCamisaChange,
   customLogos,
+  hiddenStaticLogos,
   onAddCustomLogo,
   onDeleteCustomLogo,
-  askConfirm
+  onHideStaticLogo,
+  onClearAllLogos,
+  onRestoreStaticLogos,
+  askConfirm,
+  titulo
 }) {
   const [open, setOpen] = useState(false);
   const [addingNew, setAddingNew] = useState(false);
@@ -1288,7 +1402,8 @@ function AdversarioEscudoPicker({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
-  const staticTimes = Object.keys(TEAM_LOGOS).sort((a, b) => a.localeCompare(b, "pt-BR")).map((nome) => ({ id: `static-${nome}`, nome, escudo: TEAM_LOGOS[nome], camisa: "", custom: false }));
+  const hiddenSet = new Set(hiddenStaticLogos || []);
+  const staticTimes = [["Botafogo", BOTAFOGO_CREST], ...Object.entries(TEAM_LOGOS)].filter(([nome]) => !hiddenSet.has(nome)).sort((a, b) => a[0].localeCompare(b[0], "pt-BR")).map(([nome, escudo]) => ({ id: `static-${nome}`, nome, escudo, camisa: "", custom: false }));
   const customTimes = Object.entries(customLogos || {}).map(([id, entry]) => ({ id, nome: entry.nome, escudo: entry.escudo, camisa: entry.camisa || "", custom: true })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const allTimes = [...customTimes, ...staticTimes];
   const selecionar = (t) => {
@@ -1313,8 +1428,13 @@ function AdversarioEscudoPicker({
   };
   const excluirTime = async (t, e) => {
     e.stopPropagation();
-    const ok = await askConfirm(`Remover "${t.nome}" do cat\xE1logo de escudos?`);
-    if (ok) onDeleteCustomLogo(t.id);
+    const ok = await askConfirm(`Remover "${t.nome}" da lista de escudos?`);
+    if (!ok) return;
+    if (t.custom) {
+      onDeleteCustomLogo(t.id);
+    } else {
+      onHideStaticLogo(t.nome);
+    }
   };
   return /* @__PURE__ */ React.createElement(
     "div",
@@ -1324,25 +1444,38 @@ function AdversarioEscudoPicker({
       {
         type: "button",
         className: `bfr-escudo-upload ${value ? "" : "bfr-escudo-empty"}`,
-        title: "Escolher escudo do advers\xE1rio",
+        title: titulo || "Escolher escudo",
         onClick: () => setOpen((o) => !o)
       },
-      value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Escudo do advers\xE1rio", className: "bfr-escudo-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-placeholder" }, "\u{1F4F7}")
+      value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: titulo || "Escudo", className: "bfr-escudo-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-placeholder" }, "\u{1F4F7}")
     ),
-    camisaValue && /* @__PURE__ */ React.createElement("img", { src: camisaValue, alt: "Camisa do advers\xE1rio", className: "bfr-camisa-thumb", title: "Camisa do advers\xE1rio" }),
+    camisaValue && /* @__PURE__ */ React.createElement("img", { src: camisaValue, alt: "Camisa", className: "bfr-camisa-thumb", title: "Camisa" }),
     open && /* @__PURE__ */ React.createElement(
       "div",
       { className: "bfr-escudo-popover no-print" },
       /* @__PURE__ */ React.createElement(
         "div",
         { className: "bfr-escudo-popover-header" },
-        /* @__PURE__ */ React.createElement("span", null, addingNew ? "Novo time" : "Escolher time advers\xE1rio"),
+        /* @__PURE__ */ React.createElement("span", null, addingNew ? "Novo time" : titulo || "Escolher time"),
         /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-popover-close", onClick: () => { setOpen(false); resetNovoForm(); } }, "\u2715")
       ),
       !addingNew ? /* @__PURE__ */ React.createElement(
         React.Fragment,
         null,
         /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-btn bfr-escudo-upload-btn", onClick: () => setAddingNew(true) }, "\u{1F4E4} Enviar novo time (salva no cat\xE1logo)"),
+        /* @__PURE__ */ React.createElement(
+          "div",
+          { className: "bfr-escudo-manage-row" },
+          /* @__PURE__ */ React.createElement("button", {
+            type: "button",
+            className: "bfr-escudo-link-btn",
+            onClick: async () => {
+              const ok = await askConfirm("Limpar TODOS os escudos da lista (os que voc\xEA enviou e os padr\xE3o)? O escudo do Botafogo e os que j\xE1 est\xE3o escolhidos na tela continuam. D\xE1 para restaurar os padr\xE3o depois.");
+              if (ok) onClearAllLogos();
+            }
+          }, "\u{1F5D1} Limpar todos"),
+          (hiddenStaticLogos || []).length > 0 && /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-link-btn", onClick: onRestoreStaticLogos }, "\u21A9 Restaurar padr\xE3o")
+        ),
         /* @__PURE__ */ React.createElement(
           "div",
           { className: "bfr-escudo-grid" },
@@ -1355,7 +1488,7 @@ function AdversarioEscudoPicker({
               /* @__PURE__ */ React.createElement("img", { src: t.escudo, alt: t.nome }),
               t.camisa && /* @__PURE__ */ React.createElement("span", { className: "bfr-escudo-camisa-dot", title: "Tem foto da camisa" }, "\u{1F455}")
             ),
-            t.custom && /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-grid-delete", title: "Excluir do cat\xE1logo", onClick: (e) => excluirTime(t, e) }, "\u2715")
+            /* @__PURE__ */ React.createElement("button", { type: "button", className: "bfr-escudo-grid-delete", title: "Excluir da lista", onClick: (e) => excluirTime(t, e) }, "\u2715")
           ))
         )
       ) : /* @__PURE__ */ React.createElement(
@@ -1417,6 +1550,424 @@ function AdversarioEscudoPicker({
     )
   );
 }
+/* ===================== RNC · RELATÓRIOS · HISTÓRICO ===================== */
+const __h = React.createElement;
+const RNC_TIPOS = [
+  "Falta de item",
+  "Sobra de item",
+  "Avaria / produto danificado",
+  "Divergência de contagem",
+  "Atraso / horário",
+  "Falha de processo",
+  "Outro",
+];
+
+// divergências de conferência de um item (conf. pré-jogo x enviada; devolução maior que o enviado)
+function itemDivergencias(it) {
+  const out = [];
+  const env = toNum(it.qtdEnviada);
+  const conf = toNum(it.confPreJogo);
+  const dev = toNum(it.devolucaoPosJogo);
+  const rep = toNum(it.reposicao);
+  if (conf > 0 && conf !== env) out.push("Conf. pré-jogo (" + conf + ") diferente da enviada (" + env + ")");
+  if (env - dev + rep < 0) out.push("Devolução (" + dev + ") maior que enviada + reposição (" + (env + rep) + ")");
+  return out;
+}
+
+function DivergenciasBadge({ items }) {
+  const n = (items || []).filter((it) => itemDivergencias(it).length > 0).length;
+  if (!n) return null;
+  return __h("span", { className: "bfr-div-badge no-print", title: "Itens com linha vermelha na tabela" }, "⚠ " + n + (n === 1 ? " divergência" : " divergências"));
+}
+
+// "foto" do jogo: resumo compacto da operação (usado no relatório e no histórico)
+function makeGameSnapshot(state, withPhotos) {
+  const names = (state.order || Object.keys(state.kiosks || {})).filter((n) => state.kiosks[n]);
+  let tEnv = 0, tDev = 0, tRep = 0, tVend = 0, tDiv = 0;
+  const kiosks = names.map((name) => {
+    const k = state.kiosks[name];
+    let enviada = 0, devolucao = 0, reposicao = 0, vendido = 0, divergencias = 0;
+    (k.items || []).forEach((it) => {
+      enviada += toNum(it.qtdEnviada);
+      devolucao += toNum(it.devolucaoPosJogo);
+      reposicao += toNum(it.reposicao);
+      vendido += vendidoEstimado(it);
+      if (itemDivergencias(it).length) divergencias += 1;
+    });
+    tEnv += enviada; tDev += devolucao; tRep += reposicao; tVend += vendido; tDiv += divergencias;
+    return { name, numeroControle: k.numeroControle || "", itens: (k.items || []).length, enviada, devolucao, reposicao, vendido, divergencias };
+  });
+  const first = state.kiosks[names[0]] || {};
+  const rncs = (state.rncs || []).map((r) => {
+    const c = { ...r };
+    if (!withPhotos) delete c.foto;
+    return c;
+  });
+  return {
+    jogo: String(first.jogo || "").trim(),
+    data: first.data || "",
+    responsavel: state.responsavelSeparacao || "",
+    kiosks,
+    rncs,
+    totais: { enviada: tEnv, devolucao: tDev, reposicao: tRep, vendido: tVend, divergencias: tDiv },
+    geradoEm: Date.now(),
+  };
+}
+
+function buildReportText(snap) {
+  const L = [];
+  L.push("*RELATÓRIO PÓS-JOGO — BOTAFOGO STORE*");
+  L.push("Jogo: " + (snap.jogo || "-"));
+  L.push("Data: " + (snap.data || "-"));
+  L.push("Responsável: " + (snap.responsavel || "-"));
+  L.push("");
+  L.push("*Resumo por quiosque*");
+  snap.kiosks.forEach((k) => {
+    L.push(
+      "• " + k.name + ": enviada " + k.enviada + " | devolvida " + k.devolucao + " | reposição " + k.reposicao + " | vendido (est.) " + k.vendido +
+        (k.divergencias ? "  ⚠ " + k.divergencias + " divergência(s)" : "")
+    );
+  });
+  const t = snap.totais;
+  L.push("*TOTAL:* enviada " + t.enviada + " | devolvida " + t.devolucao + " | reposição " + t.reposicao + " | vendido (est.) " + t.vendido);
+  if (t.divergencias) L.push("⚠ " + t.divergencias + " item(ns) com divergência de conferência.");
+  L.push("");
+  if (snap.rncs.length) {
+    L.push("*RNC — Registros de não conformidade (" + snap.rncs.length + ")*");
+    snap.rncs.forEach((r, i) => {
+      let linha = (i + 1) + ". [" + (r.tipo || "Outro") + "] " + (r.quiosque || "Geral");
+      if (r.produto) linha += " — " + r.produto + (r.tamanho ? " (" + r.tamanho + ")" : "");
+      if (r.qtd) linha += " — qtd " + r.qtd;
+      if (r.resolvida) linha += " ✅ resolvida";
+      L.push(linha);
+      L.push("   " + r.descricao);
+      if (r.acao) L.push("   Ação: " + r.acao);
+      if (r.responsavel) L.push("   Resp.: " + r.responsavel);
+    });
+  } else {
+    L.push("Nenhuma RNC registrada neste jogo.");
+  }
+  return L.join("\n");
+}
+
+function loadJsPdf() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  if (window.__jspdfLoading) return window.__jspdfLoading;
+  window.__jspdfLoading = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    s.onload = () => (window.jspdf && window.jspdf.jsPDF ? resolve(window.jspdf.jsPDF) : reject(new Error("gerador de PDF indisponível")));
+    s.onerror = () => {
+      window.__jspdfLoading = null;
+      reject(new Error("sem acesso ao gerador de PDF"));
+    };
+    document.head.appendChild(s);
+  });
+  return window.__jspdfLoading;
+}
+
+function buildReportPdf(JsPDF, snap) {
+  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W = 210, M = 14, LIM = 280;
+  let y = 0;
+  const addPage = () => { doc.addPage(); y = 18; };
+  const ensure = (h) => { if (y + h > LIM) addPage(); };
+  const wrap = (txt, w) => doc.splitTextToSize(String(txt == null ? "" : txt), w);
+
+  doc.setFillColor(16, 16, 18); doc.rect(0, 0, W, 26, "F");
+  doc.setFillColor(201, 161, 59); doc.rect(0, 26, W, 1.2, "F");
+  doc.setTextColor(201, 161, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text("BOTAFOGO STORE", M, 12);
+  doc.setTextColor(225, 225, 225); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text("Relatório pós-jogo · Controle de abastecimento de quiosques", M, 19);
+
+  y = 36;
+  doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+  wrap("Jogo: " + (snap.jogo || "-"), W - 2 * M).forEach((l) => { doc.text(l, M, y); y += 6.5; });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text("Data: " + (snap.data || "-") + "     Responsável pela separação: " + (snap.responsavel || "-"), M, y); y += 5;
+  doc.setTextColor(110, 110, 110); doc.setFontSize(8.5);
+  doc.text("Gerado em " + new Date(snap.geradoEm || Date.now()).toLocaleString("pt-BR"), M, y); y += 9;
+
+  // tabela de resumo
+  const RX = [108, 130, 152, 176, 196];
+  const head = ["Enviada", "Devolvida", "Reposição", "Vendido (est.)", "Diverg."];
+  const drawHead = () => {
+    doc.setFillColor(235, 235, 235); doc.rect(M, y - 4.6, W - 2 * M, 7, "F");
+    doc.setTextColor(30, 30, 30); doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text("Quiosque", M + 1.5, y);
+    head.forEach((t, i) => doc.text(t, RX[i], y, { align: "right" }));
+    y += 6;
+  };
+  drawHead();
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+  snap.kiosks.forEach((k) => {
+    ensure(7);
+    doc.setTextColor(30, 30, 30);
+    doc.text(String(k.name), M + 1.5, y);
+    [k.enviada, k.devolucao, k.reposicao, k.vendido, k.divergencias].forEach((v, i) => {
+      if (i === 4 && v) doc.setTextColor(176, 43, 43);
+      doc.text(String(v), RX[i], y, { align: "right" });
+    });
+    doc.setDrawColor(220, 220, 220); doc.line(M, y + 2, W - M, y + 2);
+    y += 6.5;
+  });
+  ensure(9);
+  const t = snap.totais;
+  doc.setFont("helvetica", "bold"); doc.setTextColor(20, 20, 20);
+  doc.text("TOTAL", M + 1.5, y);
+  [t.enviada, t.devolucao, t.reposicao, t.vendido, t.divergencias].forEach((v, i) => doc.text(String(v), RX[i], y, { align: "right" }));
+  y += 8;
+  if (t.divergencias) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(176, 43, 43);
+    wrap("Atenção: " + t.divergencias + " item(ns) com divergência (conferência pré-jogo diferente da enviada, ou devolução maior que o enviado).", W - 2 * M)
+      .forEach((l) => { doc.text(l, M, y); y += 4.5; });
+    y += 2;
+  }
+
+  // RNCs
+  y += 4; ensure(14);
+  doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(12);
+  doc.text("Registros de não conformidade (RNC)", M, y); y += 7;
+  if (!snap.rncs.length) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(90, 90, 90);
+    doc.text("Nenhuma RNC registrada neste jogo.", M, y); y += 6;
+  }
+  snap.rncs.forEach((r, i) => {
+    const titulo = (i + 1) + ". [" + (r.tipo || "Outro") + "] " + (r.quiosque || "Geral") + (r.resolvida ? "  (RESOLVIDA)" : "");
+    const det = [];
+    if (r.produto) det.push("Produto: " + r.produto + (r.tamanho ? " · Tam. " + r.tamanho : "") + (r.qtd ? " · Qtd: " + r.qtd : ""));
+    else if (r.qtd) det.push("Qtd: " + r.qtd);
+    det.push("Descrição: " + r.descricao);
+    if (r.acao) det.push("Ação tomada: " + r.acao);
+    if (r.responsavel) det.push("Responsável: " + r.responsavel);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+    const linhas = [];
+    det.forEach((d) => wrap(d, W - 2 * M - 5).forEach((l) => linhas.push(l)));
+    let foto = null;
+    if (r.foto) {
+      try {
+        const p = doc.getImageProperties(r.foto);
+        let w = 45, h = (w * p.height) / p.width;
+        if (h > 55) { h = 55; w = (h * p.width) / p.height; }
+        foto = { w, h, tipo: p.fileType || "JPEG" };
+      } catch (e) { foto = null; }
+    }
+    const altura = 7 + linhas.length * 4.6 + (foto ? foto.h + 3 : 0) + 4;
+    ensure(altura);
+    doc.setFillColor(201, 161, 59); doc.rect(M, y - 3.8, 1.2, altura - 4, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(25, 25, 25);
+    doc.text(titulo, M + 4, y); y += 5.6;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(50, 50, 50);
+    linhas.forEach((l) => { doc.text(l, M + 4, y); y += 4.6; });
+    if (foto) { try { doc.addImage(r.foto, foto.tipo, M + 4, y, foto.w, foto.h); } catch (e) {} y += foto.h + 3; }
+    y += 4;
+  });
+
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+    doc.text("SAF BOTAFOGO", M, 290);
+    doc.text("Página " + i + " de " + n, W - M, 290, { align: "right" });
+  }
+  return doc;
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+}
+
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; }
+  } catch (e) {}
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
+
+function ReportActions({ snap, setToast }) {
+  const text = useMemo(() => buildReportText(snap), [snap]);
+  const [busy, setBusy] = useState(false);
+  const base = "Relatorio_" + (snap.jogo || "jogo").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "") + "_" + String(snap.data || "").replace(/[^0-9]/g, "");
+  const toast = (m) => { if (setToast) setToast(m); };
+  const titulo = "Relatório pós-jogo — " + (snap.jogo || "") + " — " + (snap.data || "");
+
+  const doCopy = async () => {
+    const ok = await copyText(text);
+    toast(ok ? "Relatório copiado. É só colar no WhatsApp ou no e-mail." : "Não consegui copiar sozinho — selecione o texto e copie.");
+  };
+  const doWhats = () => { window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener"); };
+  const doMail = () => {
+    if (text.length > 1800) toast("Relatório longo: se o e-mail abrir cortado, use 'Copiar texto' ou o PDF.");
+    window.location.href = "mailto:?subject=" + encodeURIComponent(titulo) + "&body=" + encodeURIComponent(text);
+  };
+  const doPdf = async (mode) => {
+    setBusy(true);
+    try {
+      const JsPDF = await loadJsPdf();
+      const doc = buildReportPdf(JsPDF, snap);
+      const filename = base + ".pdf";
+      const blob = doc.output("blob");
+      if (mode === "share") {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: titulo, text: titulo }); setBusy(false); return; }
+          catch (e) { if (e && e.name === "AbortError") { setBusy(false); return; } }
+        }
+        toast("Este aparelho não compartilha arquivo direto: o PDF foi baixado — é só anexar no WhatsApp ou e-mail.");
+      }
+      triggerDownload(blob, filename);
+    } catch (e) {
+      toast("Não consegui gerar o PDF (" + (e && e.message ? e.message : "erro") + "). Use 'Imprimir / Salvar PDF' como alternativa.");
+    }
+    setBusy(false);
+  };
+
+  return __h(
+    "div",
+    { className: "bfr-rnc-actions no-print" },
+    __h("button", { className: "bfr-btn", onClick: doCopy, type: "button" }, "📋 Copiar texto"),
+    __h("button", { className: "bfr-btn", onClick: doWhats, type: "button" }, "💬 WhatsApp"),
+    __h("button", { className: "bfr-btn", onClick: doMail, type: "button" }, "✉️ E-mail"),
+    __h("button", { className: "bfr-btn", onClick: () => doPdf("download"), disabled: busy, type: "button" }, "📄 Baixar PDF"),
+    __h("button", { className: "bfr-btn bfr-btn-gold", onClick: () => doPdf("share"), disabled: busy, type: "button" }, "📤 Compartilhar PDF")
+  );
+}
+
+function RncView({ state, onAdd, onToggle, onDelete, onCloseGame, askConfirm, setToast }) {
+  const names = (state.order || []).filter((n) => state.kiosks[n]);
+  const [form, setForm] = useState({ quiosque: "Geral", tipo: RNC_TIPOS[0], produto: "", tamanho: "", qtd: "", descricao: "", acao: "", responsavel: state.responsavelSeparacao || "", foto: "" });
+  const fileRef = useRef(null);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const rncs = state.rncs || [];
+  const snap = useMemo(() => makeGameSnapshot(state, true), [state]);
+  const texto = useMemo(() => buildReportText(snap), [snap]);
+  useEffect(() => { loadJsPdf().catch(() => {}); }, []);
+
+  const submit = () => {
+    if (!form.descricao.trim()) return;
+    onAdd({ ...form, descricao: form.descricao.trim(), acao: form.acao.trim(), produto: form.produto.trim(), tamanho: form.tamanho.trim(), jogo: snap.jogo, data: snap.data });
+    setForm((f) => ({ ...f, produto: "", tamanho: "", qtd: "", descricao: "", acao: "", foto: "" }));
+  };
+  const F = (label, child) => __h("label", { className: "bfr-meta-field" }, __h("span", null, label), child);
+
+  return __h(
+    "div",
+    { className: "bfr-rnc-wrap" },
+    __h("h2", { className: "bfr-kiosk-name" }, "RNC — REGISTRO DE NÃO CONFORMIDADE"),
+    __h("div", { className: "bfr-rnc-meta" }, "Jogo: " + (snap.jogo || "-") + "  ·  Data: " + (snap.data || "-") + "  ·  Responsável: " + (snap.responsavel || "-")),
+
+    __h(
+      "div",
+      { className: "bfr-rnc-panel" },
+      __h("div", { className: "bfr-rnc-grid" },
+        F("Quiosque", __h("select", { className: "bfr-input", value: form.quiosque, onChange: (e) => set("quiosque", e.target.value) },
+          __h("option", { value: "Geral" }, "Geral (todos)"),
+          names.map((n) => __h("option", { key: n, value: n }, n)))),
+        F("Tipo", __h("select", { className: "bfr-input", value: form.tipo, onChange: (e) => set("tipo", e.target.value) },
+          RNC_TIPOS.map((t) => __h("option", { key: t, value: t }, t)))),
+        F("Produto (opcional)", __h("input", { className: "bfr-input", value: form.produto, onChange: (e) => set("produto", e.target.value), placeholder: "Ex: CAMISA HOME MZN MASC 26/27" })),
+        F("Tamanho", __h("input", { className: "bfr-input", value: form.tamanho, onChange: (e) => set("tamanho", e.target.value), placeholder: "G" })),
+        F("Quantidade", __h("input", { className: "bfr-input", value: form.qtd, onChange: (e) => set("qtd", e.target.value), placeholder: "0" })),
+        F("Responsável", __h("input", { className: "bfr-input", value: form.responsavel, onChange: (e) => set("responsavel", e.target.value) }))
+      ),
+      __h("div", { style: { marginTop: 12 } }, F("O que aconteceu *", __h("textarea", { className: "bfr-rnc-textarea", value: form.descricao, onChange: (e) => set("descricao", e.target.value), placeholder: "Descreva a não conformidade" }))),
+      __h("div", { style: { marginTop: 12 } }, F("Ação tomada / a tomar", __h("textarea", { className: "bfr-rnc-textarea", style: { minHeight: 60 }, value: form.acao, onChange: (e) => set("acao", e.target.value), placeholder: "Ex: item devolvido ao estoque, reposição solicitada" }))),
+      __h("div", { className: "bfr-rnc-actions" },
+        __h("button", { type: "button", className: "bfr-btn", onClick: () => fileRef.current && fileRef.current.click() }, form.foto ? "📷 Trocar foto" : "📷 Anexar foto"),
+        form.foto && __h("img", { src: form.foto, alt: "Foto anexada", className: "bfr-rnc-foto" }),
+        form.foto && __h("button", { type: "button", className: "bfr-btn", onClick: () => set("foto", "") }, "Remover foto"),
+        __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", disabled: !form.descricao.trim(), onClick: submit }, "+ Adicionar RNC")
+      ),
+      __h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: async (e) => {
+        const f = e.target.files && e.target.files[0];
+        e.target.value = "";
+        if (!f) return;
+        set("foto", await resizeImageToDataUrl(f, 480, 0.6));
+      } })
+    ),
+
+    __h("h3", { className: "bfr-section-title" }, "Registros deste jogo (" + rncs.length + ")"),
+    rncs.length === 0 && __h("div", { className: "bfr-rnc-meta" }, "Nenhuma RNC registrada ainda."),
+    rncs.map((r) =>
+      __h("div", { key: r.id, className: "bfr-rnc-card" + (r.resolvida ? " resolvida" : "") },
+        __h("div", { style: { flex: 1, minWidth: 0 } },
+          __h("div", null, __h("span", { className: "bfr-rnc-tag" }, r.tipo || "Outro"), __h("strong", null, r.quiosque || "Geral"), r.resolvida && __h("span", { style: { marginLeft: 8, color: "#6fcf97" } }, "✅ resolvida")),
+          (r.produto || r.qtd) && __h("div", { className: "bfr-rnc-meta" }, (r.produto || "") + (r.tamanho ? " · Tam. " + r.tamanho : "") + (r.qtd ? " · Qtd " + r.qtd : "")),
+          __h("div", null, r.descricao),
+          r.acao && __h("div", { className: "bfr-rnc-meta" }, "Ação: " + r.acao),
+          __h("div", { className: "bfr-rnc-meta" }, (r.responsavel ? r.responsavel + " · " : "") + new Date(r.createdAt || Date.now()).toLocaleString("pt-BR"))
+        ),
+        r.foto && __h("img", { src: r.foto, alt: "Foto da RNC", className: "bfr-rnc-foto" }),
+        __h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+          __h("button", { type: "button", className: "bfr-btn", onClick: () => onToggle(r.id) }, r.resolvida ? "Reabrir" : "Resolver"),
+          __h("button", { type: "button", className: "bfr-btn bfr-btn-danger", onClick: async () => { if (await askConfirm("Excluir esta RNC?")) onDelete(r.id); } }, "Excluir")
+        )
+      )
+    ),
+
+    __h("h3", { className: "bfr-section-title" }, "Relatório do jogo"),
+    __h("div", { className: "bfr-rnc-panel" },
+      __h("textarea", { className: "bfr-rnc-textarea bfr-rnc-report", readOnly: true, value: texto }),
+      __h(ReportActions, { snap, setToast }),
+      __h("div", { className: "bfr-rnc-actions no-print" },
+        __h("button", { type: "button", className: "bfr-btn bfr-btn-danger", onClick: async () => {
+          const ok = await askConfirm("Encerrar o jogo \"" + (snap.jogo || "") + "\"? O resumo e as RNCs vão para o Histórico e a lista de RNCs é zerada. Os quiosques não são alterados.");
+          if (ok) onCloseGame();
+        } }, "✅ Encerrar jogo e arquivar no histórico")
+      )
+    )
+  );
+}
+
+function HistoryView({ history, onDelete, askConfirm, setToast }) {
+  const lista = history || [];
+  const fmt = (ts) => new Date(ts).toLocaleString("pt-BR");
+  return __h(
+    "div",
+    { className: "bfr-rnc-wrap" },
+    __h("h2", { className: "bfr-kiosk-name" }, "HISTÓRICO DE JOGOS"),
+    lista.length === 0 && __h("div", { className: "bfr-rnc-meta" }, "Nenhum jogo arquivado ainda. Na aba RNC, use “Encerrar jogo e arquivar” para guardar a operação aqui."),
+    lista.length > 0 && __h("div", { className: "bfr-rnc-panel", style: { overflowX: "auto" } },
+      __h("div", { className: "bfr-rnc-meta", style: { marginBottom: 8 } }, "Comparativo dos últimos jogos"),
+      __h("table", { className: "bfr-hist-table" },
+        __h("thead", null, __h("tr", null, ["Jogo", "Data", "Enviada", "Devolvida", "Vendido (est.)", "Diverg.", "RNCs"].map((c) => __h("th", { key: c }, c)))),
+        __h("tbody", null, lista.slice(0, 15).map((g) =>
+          __h("tr", { key: g.id },
+            __h("td", null, g.jogo || "-"), __h("td", null, g.data || "-"),
+            __h("td", null, g.totais.enviada), __h("td", null, g.totais.devolucao), __h("td", null, g.totais.vendido),
+            __h("td", null, g.totais.divergencias), __h("td", null, g.rncs.length))
+        ))
+      )
+    ),
+    lista.map((g) =>
+      __h("details", { key: g.id, className: "bfr-hist-game" },
+        __h("summary", null, __h("strong", null, g.jogo || "Jogo sem nome"), "  ·  " + (g.data || "-") + "  ·  arquivado em " + fmt(g.closedAt)),
+        __h("div", { className: "bfr-hist-body" },
+          __h("table", { className: "bfr-hist-table" },
+            __h("thead", null, __h("tr", null, ["Quiosque", "Enviada", "Devolvida", "Reposição", "Vendido (est.)", "Diverg."].map((c) => __h("th", { key: c }, c)))),
+            __h("tbody", null, g.kiosks.map((k) => __h("tr", { key: k.name }, __h("td", null, k.name), __h("td", null, k.enviada), __h("td", null, k.devolucao), __h("td", null, k.reposicao), __h("td", null, k.vendido), __h("td", null, k.divergencias))))
+          ),
+          g.rncs.length > 0 && __h("div", { style: { marginTop: 10 } }, g.rncs.map((r, i) =>
+            __h("div", { key: r.id || i, className: "bfr-rnc-meta" }, (i + 1) + ". [" + (r.tipo || "Outro") + "] " + (r.quiosque || "Geral") + " — " + r.descricao + (r.resolvida ? " (resolvida)" : "")))),
+          __h(ReportActions, { snap: g, setToast }),
+          __h("div", { className: "bfr-rnc-actions no-print" },
+            __h("button", { type: "button", className: "bfr-btn bfr-btn-danger", onClick: async () => { if (await askConfirm("Excluir este jogo do histórico?")) onDelete(g.id); } }, "Excluir do histórico"))
+        )
+      )
+    )
+  );
+}
+
 function ProductPhotoUpload({ value, onChange }) {
   return /* @__PURE__ */ React.createElement("label", { className: `bfr-foto-upload ${value ? "" : "bfr-foto-empty"}`, title: "Anexar foto do produto" }, value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Foto do produto", className: "bfr-foto-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-foto-placeholder" }, "\u{1F4F7}"), /* @__PURE__ */ React.createElement(
     "input",
@@ -1621,6 +2172,31 @@ function GlobalStyle() {
         display:flex; align-items:center; justify-content:center;
       }
       .bfr-escudo-grid-delete:hover { background:#b02b2b; }
+      @media screen {
+        .bfr-row-alert td { background: rgba(176,43,43,0.20) !important; }
+        .bfr-row-alert td:first-child { box-shadow: inset 3px 0 0 #b02b2b; }
+      }
+      .bfr-div-badge { margin-left:12px; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0; text-transform:none; background:rgba(176,43,43,0.25); color:#f0a0a0; border:1px solid #6b2b2b; border-radius:10px; padding:2px 8px; vertical-align:middle; }
+      .bfr-rnc-wrap { display:flex; flex-direction:column; gap:14px; }
+      .bfr-rnc-panel { background:#161618; border:1px solid #2a2a2d; border-radius:10px; padding:16px; }
+      .bfr-rnc-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
+      .bfr-rnc-textarea { width:100%; min-height:90px; background:#101012; color:#f0f0ef; border:1px solid #2a2a2d; border-radius:6px; padding:8px; font-family:inherit; font-size:13px; resize:vertical; box-sizing:border-box; }
+      .bfr-rnc-report { min-height:220px; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; }
+      .bfr-rnc-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px; }
+      .bfr-rnc-card { border:1px solid #2a2a2d; border-left:3px solid #c9a13b; border-radius:8px; padding:10px 12px; background:#101012; display:flex; gap:12px; justify-content:space-between; align-items:flex-start; }
+      .bfr-rnc-card.resolvida { opacity:0.65; border-left-color:#3b8a54; }
+      .bfr-rnc-tag { display:inline-block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; background:#2a2a2d; color:#c9a13b; padding:2px 8px; border-radius:10px; margin-right:8px; }
+      .bfr-rnc-meta { color:#8a8a8e; font-size:12px; margin:4px 0; }
+      .bfr-rnc-foto { width:72px; height:72px; object-fit:cover; border-radius:6px; border:1px solid #2a2a2d; }
+      .bfr-hist-table { width:100%; border-collapse:collapse; font-size:13px; }
+      .bfr-hist-table th, .bfr-hist-table td { padding:6px 8px; border-bottom:1px solid #2a2a2d; text-align:right; }
+      .bfr-hist-table th:first-child, .bfr-hist-table td:first-child { text-align:left; }
+      .bfr-hist-game { border:1px solid #2a2a2d; border-radius:8px; background:#161618; }
+      .bfr-hist-game > summary { cursor:pointer; padding:10px 14px; color:#f0f0ef; font-size:13px; }
+      .bfr-hist-body { padding:0 14px 14px; }
+      .bfr-escudo-manage-row { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
+      .bfr-escudo-link-btn { background:none; border:none; color:#8a8a8e; font-size:11px; cursor:pointer; padding:2px 0; }
+      .bfr-escudo-link-btn:hover { color:#fff; }
       .bfr-escudo-new-form { display:flex; flex-direction:column; gap:10px; }
       .bfr-escudo-new-row { display:flex; gap:8px; }
       .bfr-escudo-new-btn {
