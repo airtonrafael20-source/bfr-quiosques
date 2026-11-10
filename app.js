@@ -588,6 +588,7 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
   const [toast, setToast] = useState("");
   const [dialog, setDialog] = useState(null);
   const [posJogo, setPosJogo] = useState(null);
+  const [etiquetaDraft, setEtiquetaDraft] = useState(null);
   const somenteLeitura = papel === "leitor";
   const setState = (u) => {
     if (somenteLeitura) {
@@ -1021,6 +1022,11 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
     }
     return null;
   };
+  const openEtiqueta = (it) => {
+    setEtiquetaDraft({ id: Date.now(), codigo: it.codigo || "", produto: it.produto || "", tamanho: it.tamanho || "", qtd: 1 });
+    setActiveTab("__ETIQ__");
+  };
+
   const trocarMinhaSenha = async () => {
     const atual = await askPrompt("Digite a sua senha atual:");
     if (atual == null) return;
@@ -1222,7 +1228,7 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
       onClick: () => setActiveTab(name)
     },
     name
-  )), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__RNC__" ? "active" : ""}`, onClick: () => setActiveTab("__RNC__") }, "\u{1F4CB} RNC" + ((state.rncs || []).length ? ` (${(state.rncs || []).length})` : "")), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__HIST__" ? "active" : ""}`, onClick: () => setActiveTab("__HIST__") }, "\u{1F5C2} Hist\xF3rico"), papel === "admin" && /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__ACESSOS__" ? "active" : ""}`, onClick: () => setActiveTab("__ACESSOS__") }, "\u{1F510} Acessos"), /* @__PURE__ */ React.createElement("button", { className: "bfr-tab bfr-tab-add", onClick: addKiosk }, "+ Quiosque")), /* @__PURE__ */ React.createElement("main", { className: "bfr-main" }, activeTab === "__ACESSOS__" && papel === "admin" ? /* @__PURE__ */ React.createElement(AcessosView, { acessos, eu: authUser, onChange: onAcessosChange, askConfirm, setToast }) : activeTab === "__RNC__" ? /* @__PURE__ */ React.createElement(RncView, { state, onAdd: addRnc, onToggle: toggleRnc, onDelete: deleteRnc, onCloseGame: closeGame, askConfirm, setToast }) : activeTab === "__HIST__" ? /* @__PURE__ */ React.createElement(HistoryView, { history: state.history || [], onDelete: deleteHistory, askConfirm, setToast }) : activeTab === "DASHBOARD" ? /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__RNC__" ? "active" : ""}`, onClick: () => setActiveTab("__RNC__") }, "\u{1F4CB} RNC" + ((state.rncs || []).length ? ` (${(state.rncs || []).length})` : "")), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__HIST__" ? "active" : ""}`, onClick: () => setActiveTab("__HIST__") }, "\u{1F5C2} Hist\xF3rico"), papel === "admin" && /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__ACESSOS__" ? "active" : ""}`, onClick: () => setActiveTab("__ACESSOS__") }, "\u{1F510} Acessos"), /* @__PURE__ */ React.createElement("button", { className: `bfr-tab ${activeTab === "__ETIQ__" ? "active" : ""}`, onClick: () => setActiveTab("__ETIQ__") }, "\u{1F3F7} Etiquetas"), /* @__PURE__ */ React.createElement("button", { className: "bfr-tab bfr-tab-add", onClick: addKiosk }, "+ Quiosque")), /* @__PURE__ */ React.createElement("main", { className: "bfr-main" }, activeTab === "__ETIQ__" ? /* @__PURE__ */ React.createElement(EtiquetasView, { state, draft: etiquetaDraft }) : activeTab === "__ACESSOS__" && papel === "admin" ? /* @__PURE__ */ React.createElement(AcessosView, { acessos, eu: authUser, onChange: onAcessosChange, askConfirm, setToast }) : activeTab === "__RNC__" ? /* @__PURE__ */ React.createElement(RncView, { state, onAdd: addRnc, onToggle: toggleRnc, onDelete: deleteRnc, onCloseGame: closeGame, askConfirm, setToast }) : activeTab === "__HIST__" ? /* @__PURE__ */ React.createElement(HistoryView, { history: state.history || [], onDelete: deleteHistory, askConfirm, setToast }) : activeTab === "DASHBOARD" ? /* @__PURE__ */ React.createElement(
     DashboardView,
     {
       state,
@@ -1263,6 +1269,7 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
       rncs: state.rncs,
       onGenerateControle: gerarControle,
       onPickPosJogo: openPosJogo,
+      onEtiqueta: openEtiqueta,
       onAddRnc: addRnc,
       onToggleRnc: toggleRnc,
       onDeleteRnc: deleteRnc,
@@ -1315,7 +1322,8 @@ function KioskView({
   onDeleteRnc,
   setToast,
   onGenerateControle,
-  onPickPosJogo
+  onPickPosJogo,
+  onEtiqueta
 }) {
   const [rncDraft, setRncDraft] = useState(null);
   if (!kiosk) return null;
@@ -1411,7 +1419,7 @@ function KioskView({
       value: it.reposicao,
       onChange: (e) => onItemField(it.id, "reposicao", e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement(RowRncButton, { it, rncs: kioskRncs, onRequest: requestRncForItem }), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement(KioskRncPanel, { name, kiosk, rncs: kioskRncs, responsavel: responsavelSeparacao, draft: rncDraft && rncDraft.quiosque === name ? rncDraft : null, onDraftDone: () => setRncDraft(null), onAdd: onAddRnc, onToggle: onToggleRnc, onDelete: onDeleteRnc, askConfirm, setToast }), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
+  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement(RowRncButton, { it, rncs: kioskRncs, onRequest: requestRncForItem }), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn no-print", title: "Gerar etiqueta com c\xF3digo de barras", onClick: () => onEtiqueta(it) }, "\u{1F3F7}"), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement(KioskRncPanel, { name, kiosk, rncs: kioskRncs, responsavel: responsavelSeparacao, draft: rncDraft && rncDraft.quiosque === name ? rncDraft : null, onDraftDone: () => setRncDraft(null), onAdd: onAddRnc, onToggle: onToggleRnc, onDelete: onDeleteRnc, askConfirm, setToast }), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
 }
 function resizeImageToDataUrl(file, maxDim, quality) {
   return new Promise((resolve, reject) => {
@@ -2565,6 +2573,172 @@ function AcessosView({ acessos, eu, onChange, askConfirm, setToast }) {
   );
 }
 
+/* ===================== ETIQUETAS COM CÓDIGO DE BARRAS ===================== */
+const C128_PADROES = ["11011001100", "11001101100", "11001100110", "10010011000", "10010001100", "10001001100", "10011001000", "10011000100", "10001100100", "11001001000", "11001000100", "11000100100", "10110011100", "10011011100", "10011001110", "10111001100", "10011101100", "10011100110", "11001110010", "11001011100", "11001001110", "11011100100", "11001110100", "11101101110", "11101001100", "11100101100", "11100100110", "11101100100", "11100110100", "11100110010", "11011011000", "11011000110", "11000110110", "10100011000", "10001011000", "10001000110", "10110001000", "10001101000", "10001100010", "11010001000", "11000101000", "11000100010", "10110111000", "10110001110", "10001101110", "10111011000", "10111000110", "10001110110", "11101110110", "11010001110", "11000101110", "11011101000", "11011100010", "11011101110", "11101011000", "11101000110", "11100010110", "11101101000", "11101100010", "11100011010", "11101111010", "11001000010", "11110001010", "10100110000", "10100001100", "10010110000", "10010000110", "10000101100", "10000100110", "10110010000", "10110000100", "10011010000", "10011000010", "10000110100", "10000110010", "11000010010", "11001010000", "11110111010", "11000010100", "10001111010", "10100111100", "10010111100", "10010011110", "10111100100", "10011110100", "10011110010", "11110100100", "11110010100", "11110010010", "11011011110", "11011110110", "11110110110", "10101111000", "10100011110", "10001011110", "10111101000", "10111100010", "11110101000", "11110100010", "10111011110", "10111101110", "11101011110", "11110101110", "11010000100", "11010010000", "11010011100"];
+const C128_STOP = "11000111010";
+const EAN_L = ["0001101", "0011001", "0010011", "0111101", "0100011", "0110001", "0101111", "0111011", "0110111", "0001011"];
+const EAN_G = ["0100111", "0110011", "0011011", "0100001", "0011101", "0111001", "0000101", "0010001", "0001001", "0010111"];
+const EAN_R = ["1110010", "1100110", "1101100", "1000010", "1011100", "1001110", "1010000", "1000100", "1001000", "1110100"];
+const EAN_PAR = ["LLLLLL", "LLGLGG", "LLGGLG", "LLGGGL", "LGLLGG", "LGGLLG", "LGGGLL", "LGLGLG", "LGLGGL", "LGGLGL"];
+
+function ean13Valido(s) {
+  if (!/^\d{13}$/.test(s)) return false;
+  let soma = 0;
+  for (let i = 0; i < 12; i++) soma += Number(s[i]) * (i % 2 === 0 ? 1 : 3);
+  return (10 - (soma % 10)) % 10 === Number(s[12]);
+}
+function ean13Modulos(s) {
+  const par = EAN_PAR[Number(s[0])];
+  let m = "101";
+  for (let i = 1; i <= 6; i++) m += (par[i - 1] === "L" ? EAN_L : EAN_G)[Number(s[i])];
+  m += "01010";
+  for (let i = 7; i <= 12; i++) m += EAN_R[Number(s[i])];
+  return m + "101";
+}
+function code128Modulos(txt) {
+  const s = String(txt).replace(/[^\x20-\x7e]/g, "?");
+  const codes = [];
+  if (/^\d+$/.test(s) && s.length % 2 === 0 && s.length >= 4) {
+    codes.push(105);
+    for (let i = 0; i < s.length; i += 2) codes.push(parseInt(s.slice(i, i + 2), 10));
+  } else {
+    codes.push(104);
+    for (let i = 0; i < s.length; i++) codes.push(s.charCodeAt(i) - 32);
+  }
+  let soma = codes[0];
+  for (let i = 1; i < codes.length; i++) soma += codes[i] * i;
+  codes.push(soma % 103);
+  return codes.map((c) => C128_PADROES[c]).join("") + C128_STOP + "11";
+}
+function simbologiaDe(codigo, tipo) {
+  const c = String(codigo || "").trim();
+  if (!c) return null;
+  if ((tipo === "auto" || tipo === "ean13") && ean13Valido(c)) return { tipo: "EAN-13", modulos: ean13Modulos(c), aviso: "" };
+  let aviso = tipo === "ean13" ? "Esse número não é um EAN-13 válido (13 dígitos com o dígito verificador certo) — usei Code 128." : "";
+  if (/[^\x20-\x7e]/.test(c)) aviso = "O código tem letras com acento ou símbolos que o código de barras não aceita — troquei por “?”.";
+  return { tipo: "Code 128", modulos: code128Modulos(c), aviso };
+}
+
+function BarcodeSvg({ modulos, altura }) {
+  const Q = 10;
+  const W = modulos.length + 2 * Q;
+  let d = "";
+  let i = 0;
+  while (i < modulos.length) {
+    if (modulos[i] === "1") {
+      let j = i;
+      while (j < modulos.length && modulos[j] === "1") j++;
+      d += "M" + (i + Q) + " 0h" + (j - i) + "v1h-" + (j - i) + "z";
+      i = j;
+    } else i++;
+  }
+  return __h("svg", { className: "bfr-etq-bars", viewBox: "0 0 " + W + " 1", preserveAspectRatio: "none", role: "img", "aria-label": "código de barras", style: { width: "100%", height: altura + "mm", display: "block", shapeRendering: "crispEdges" } },
+    __h("path", { d, fill: "#000" }));
+}
+
+const ETQ_PRESETS = {
+  t100x50: { rotulo: "100 × 50 mm (impressora térmica)", w: 100, h: 50, modo: "termica" },
+  t60x40: { rotulo: "60 × 40 mm (impressora térmica)", w: 60, h: 40, modo: "termica" },
+  t50x30: { rotulo: "50 × 30 mm (impressora térmica)", w: 50, h: 30, modo: "termica" },
+  a4: { rotulo: "Folha A4 — 21 etiquetas (63,5 × 38,1 mm)", w: 63.5, h: 38.1, modo: "folha" },
+};
+
+function EtiquetaItem({ cfg, p, simb }) {
+  const base = Math.max(2.2, Math.min(4.2, cfg.h / 11));
+  const alturaBarras = Math.round(cfg.h * 0.4 * 10) / 10;
+  return __h("div", { className: "bfr-etq-label", style: { width: cfg.w + "mm", height: cfg.h + "mm", padding: "2mm 3mm", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#fff", color: "#000", fontFamily: "Arial, Helvetica, sans-serif" } },
+    __h("div", null,
+      __h("div", { style: { fontWeight: 700, fontSize: base * 1.15 + "mm", lineHeight: 1.1, maxHeight: base * 1.15 * 2.3 + "mm", overflow: "hidden", textTransform: "uppercase" } }, p.produto || " "),
+      (p.tamanho || p.extra) && __h("div", { style: { fontSize: base + "mm", lineHeight: 1.15, marginTop: "0.4mm" } }, [p.tamanho ? "Tam.: " + p.tamanho : "", p.extra].filter(Boolean).join("  ·  "))),
+    simb ? __h(BarcodeSvg, { modulos: simb.modulos, altura: alturaBarras }) : __h("div", { style: { height: alturaBarras + "mm" } }),
+    __h("div", { style: { textAlign: "center", fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: base * 1.25 + "mm", letterSpacing: "0.25mm" } }, p.codigo || " ")
+  );
+}
+
+function etiquetaCss(cfg) {
+  const termica = cfg.modo === "termica";
+  return ".bfr-etq-sheet { display:none; }\n" +
+    "@media print {\n" +
+    "  html, body { margin:0 !important; padding:0 !important; }\n  .bfr-main { padding:0 !important; }\n" +
+    "  .bfr-etq-form, .bfr-etq-screen { display:none !important; }\n" +
+    "  .bfr-etq-label { box-sizing:border-box; overflow:hidden; break-inside:avoid; page-break-inside:avoid; }\n" +
+    (termica
+      ? "  @page { size: " + cfg.w + "mm " + cfg.h + "mm; margin: 0; }\n  .bfr-etq-sheet { display:block !important; }\n  .bfr-etq-label { break-after:page; page-break-after:always; }\n  .bfr-etq-sheet .bfr-etq-label:last-child { break-after:auto; page-break-after:auto; }\n"
+      : "  @page { size: A4 portrait; margin: 14mm 7mm; }\n  .bfr-etq-sheet { display:flex !important; flex-wrap:wrap; column-gap:2mm; align-content:flex-start; }\n  .bfr-etq-label { outline:0.1mm dotted #bbb; }\n") +
+    "}\n";
+}
+
+function EtiquetasView({ state, draft }) {
+  let prefs = {};
+  try { prefs = JSON.parse(window.localStorage.getItem("bfr-etq-prefs") || "{}"); } catch (e) {}
+  const [codigo, setCodigo] = useState("");
+  const [produto, setProduto] = useState("");
+  const [tamanho, setTamanho] = useState("");
+  const [extra, setExtra] = useState("");
+  const [qtd, setQtd] = useState("1");
+  const [preset, setPreset] = useState(ETQ_PRESETS[prefs.preset] ? prefs.preset : "t100x50");
+  const [tipo, setTipo] = useState(["auto", "code128", "ean13"].includes(prefs.tipo) ? prefs.tipo : "auto");
+  const [busca, setBusca] = useState("");
+  useEffect(() => {
+    try { window.localStorage.setItem("bfr-etq-prefs", JSON.stringify({ preset, tipo })); } catch (e) {}
+  }, [preset, tipo]);
+  useEffect(() => {
+    if (!draft) return;
+    setCodigo(draft.codigo || ""); setProduto(draft.produto || ""); setTamanho(draft.tamanho || ""); setQtd(String(draft.qtd || 1));
+  }, [draft]);
+
+  const itens = useMemo(() => {
+    const vistos = new Set(); const out = [];
+    Object.keys(state.kiosks || {}).forEach((nm) => (state.kiosks[nm].items || []).forEach((it) => {
+      const k = [it.produto, it.tamanho, it.codigo].join("|");
+      if (vistos.has(k)) return; vistos.add(k);
+      out.push({ produto: it.produto || "", tamanho: it.tamanho || "", codigo: it.codigo || "" });
+    }));
+    return out;
+  }, [state.kiosks]);
+  const termo = busca.trim().toLowerCase();
+  const achados = termo.length < 2 ? [] : itens.filter((i) => (i.produto + " " + i.tamanho + " " + i.codigo).toLowerCase().includes(termo)).slice(0, 8);
+
+  const cfg = ETQ_PRESETS[preset];
+  const simb = simbologiaDe(codigo, tipo);
+  const n = Math.max(1, Math.min(300, parseInt(qtd, 10) || 1));
+  const p = { codigo: codigo.trim(), produto: produto.trim(), tamanho: tamanho.trim(), extra: extra.trim() };
+  const F = (label, child) => __h("label", { className: "bfr-meta-field" }, __h("span", null, label), child);
+
+  return __h("div", { className: "bfr-rnc-wrap" },
+    __h("style", null, etiquetaCss(cfg)),
+    __h("div", { className: "bfr-etq-form bfr-rnc-wrap" },
+      __h("h2", { className: "bfr-kiosk-name" }, "ETIQUETA COM CÓDIGO DE BARRAS"),
+      __h("div", { className: "bfr-rnc-meta" }, "Para material que precisa ser bipado na hora: preencha o código, confira a prévia e imprima. Dá para puxar um item dos quiosques pela busca, ou pelo botão 🏷 na linha do item."),
+      __h("div", { className: "bfr-rnc-panel" },
+        F("Buscar item nos quiosques (nome, tamanho ou código)", __h("input", { className: "bfr-input", value: busca, onChange: (e) => setBusca(e.target.value), placeholder: "Ex: CAMISA HOME ou 7891234567895" })),
+        achados.map((a, i) => __h("div", { key: i, className: "bfr-rnc-pend", style: { cursor: "pointer", borderColor: "#3a3a3d" }, onClick: () => { setCodigo(a.codigo); setProduto(a.produto); setTamanho(a.tamanho); setBusca(""); } },
+          __h("span", null, a.produto + (a.tamanho ? " · " + a.tamanho : "") + (a.codigo ? " · " + a.codigo : " · (sem código — digite abaixo)")),
+          __h("span", { className: "bfr-rnc-meta" }, "usar"))),
+        __h("div", { className: "bfr-rnc-grid", style: { marginTop: 12 } },
+          F("Código do produto *", __h("input", { className: "bfr-input", value: codigo, onChange: (e) => setCodigo(e.target.value), placeholder: "Número que o leitor vai bipar" })),
+          F("Descrição do produto", __h("input", { className: "bfr-input", value: produto, onChange: (e) => setProduto(e.target.value) })),
+          F("Tamanho", __h("input", { className: "bfr-input", value: tamanho, onChange: (e) => setTamanho(e.target.value) })),
+          F("Texto extra (opcional)", __h("input", { className: "bfr-input", value: extra, onChange: (e) => setExtra(e.target.value), placeholder: "Ex: local, jogo, lote" })),
+          F("Quantidade de etiquetas", __h("input", { className: "bfr-input", type: "number", min: 1, max: 300, value: qtd, onChange: (e) => setQtd(e.target.value) })),
+          F("Tamanho da etiqueta", __h("select", { className: "bfr-input", value: preset, onChange: (e) => setPreset(e.target.value) }, Object.keys(ETQ_PRESETS).map((k) => __h("option", { key: k, value: k }, ETQ_PRESETS[k].rotulo)))),
+          F("Tipo de código de barras", __h("select", { className: "bfr-input", value: tipo, onChange: (e) => setTipo(e.target.value) },
+            __h("option", { value: "auto" }, "Automático (recomendado)"), __h("option", { value: "code128" }, "Code 128 (aceita letras e números)"), __h("option", { value: "ean13" }, "EAN-13 (13 dígitos)"))))
+      )
+    ),
+    __h("div", { className: "bfr-etq-screen bfr-rnc-panel" },
+      __h("div", { className: "bfr-rnc-meta", style: { marginBottom: 8 } }, "Prévia em tamanho real" + (simb ? " — " + simb.tipo : "")),
+      simb && simb.aviso && __h("div", { style: { color: "#f0a0a0", fontSize: 13, marginBottom: 8 } }, "⚠ " + simb.aviso),
+      !simb && __h("div", { className: "bfr-rnc-meta", style: { marginBottom: 8 } }, "Digite o código do produto para ver a etiqueta."),
+      __h("div", { className: "bfr-etq-preview", style: { display: "inline-block", border: "1px solid #555", boxShadow: "0 0 0 6px #fff" } }, __h(EtiquetaItem, { cfg, p, simb })),
+      __h("div", { className: "bfr-rnc-actions" },
+        __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", disabled: !simb, onClick: () => window.print() }, "🖨 Imprimir " + n + (n === 1 ? " etiqueta" : " etiquetas")),
+        __h("span", { className: "bfr-rnc-meta" }, cfg.modo === "folha" ? "Na caixa de impressão: papel A4, escala 100% (não ajustar à página)." : "Na caixa de impressão: use a impressora de etiquetas, escala 100% e margens “Nenhuma”."))
+    ),
+    __h("div", { className: "bfr-etq-sheet" }, simb ? Array.from({ length: n }, (_, i) => __h(EtiquetaItem, { key: i, cfg, p, simb })) : null)
+  );
+}
+
 function ProductPhotoUpload({ value, onChange }) {
   return /* @__PURE__ */ React.createElement("label", { className: `bfr-foto-upload ${value ? "" : "bfr-foto-empty"}`, title: "Anexar foto do produto" }, value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Foto do produto", className: "bfr-foto-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-foto-placeholder" }, "\u{1F4F7}"), /* @__PURE__ */ React.createElement(
     "input",
@@ -2889,7 +3063,7 @@ function GlobalStyle() {
           color:#666 !important;
         }
         .bfr-root { background:#fff !important; color:#111 !important; }
-        .bfr-main { padding:0; max-width:none; }
+        .bfr-main { padding:6mm 9mm 6mm 9mm !important; max-width:none !important; width:100% !important; box-sizing:border-box !important; margin:0 !important; }
         .bfr-table th { background:#eee !important; color:#111 !important; }
         .bfr-table td { color:#111 !important; }
         .bfr-table tfoot td { background:#e2e2e2 !important; color:#111 !important; border-top:2px solid #999 !important; }
@@ -2942,7 +3116,7 @@ function GlobalStyle() {
         .bfr-card { padding:8px; }
         .bfr-card-value { font-size:20px; }
 
-        @page { size: landscape; margin: 8mm; }
+        @page { size: A4 landscape; margin: 8mm 5mm; }
       }
     `);
 }
