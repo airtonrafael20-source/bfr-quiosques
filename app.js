@@ -1240,7 +1240,8 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
       kioskTotals,
       grandTotal,
       categoryChartData,
-      kioskChartData
+      kioskChartData,
+      setToast
     }
   ) : /* @__PURE__ */ React.createElement(
     KioskView,
@@ -1281,17 +1282,6 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
       askConfirm
     }
   )), /* @__PURE__ */ React.createElement("footer", { className: "bfr-footer no-print" }, "Botafogo Store \xB7 Controle de Quiosques \u2014 dados salvos automaticamente"));
-}
-function DashboardView({ state, kioskNames, kioskTotals, grandTotal, categoryChartData, kioskChartData }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "bfr-print-area" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-print-only bfr-print-head" }, /* @__PURE__ */ React.createElement(StarBadge, { size: 40 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-title" }, "BOTAFOGO STORE"), /* @__PURE__ */ React.createElement("div", { className: "bfr-subtitle" }, "Dashboard do Evento \u2014 Controle de Quiosques"))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title" }, "Vis\xE3o Geral"), /* @__PURE__ */ React.createElement("div", { className: "bfr-stat-grid" }, /* @__PURE__ */ React.createElement(StatCard, { label: "Quiosques", value: kioskNames.length }), /* @__PURE__ */ React.createElement(StatCard, { label: "Qtd. Enviada", value: grandTotal.enviada }), /* @__PURE__ */ React.createElement(StatCard, { label: "Devolu\xE7\xE3o (P\xF3s-Jogo)", value: grandTotal.devolucao }), /* @__PURE__ */ React.createElement(StatCard, { label: "Reposi\xE7\xE3o", value: grandTotal.reposicao }), /* @__PURE__ */ React.createElement(StatCard, { label: "Vendido (Estimado)", value: grandTotal.vendido, sub: "Enviada \u2212 Devolu\xE7\xE3o + Reposi\xE7\xE3o" })), /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title" }, "Por Quiosque"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Quiosque"), /* @__PURE__ */ React.createElement("th", null, "Qtd. Enviada"), /* @__PURE__ */ React.createElement("th", null, "Devolu\xE7\xE3o (P\xF3s-Jogo)"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", null, "Vendido (Estimado)"), /* @__PURE__ */ React.createElement("th", null, "% Participa\xE7\xE3o"))), /* @__PURE__ */ React.createElement("tbody", null, kioskNames.map((name) => {
-    const t = kioskTotals[name] || { enviada: 0, devolucao: 0, reposicao: 0, vendido: 0 };
-    const pct = grandTotal.vendido > 0 ? t.vendido / grandTotal.vendido * 100 : 0;
-    return /* @__PURE__ */ React.createElement("tr", { key: name }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, name), /* @__PURE__ */ React.createElement("td", null, t.enviada), /* @__PURE__ */ React.createElement("td", null, t.devolucao), /* @__PURE__ */ React.createElement("td", null, t.reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold" }, t.vendido), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("div", { className: "bfr-bar-cell" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-bar-track" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-bar-fill", style: { width: `${pct}%` } })), /* @__PURE__ */ React.createElement("span", null, pct.toFixed(1), "%"))));
-  })), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, grandTotal.enviada), /* @__PURE__ */ React.createElement("td", null, grandTotal.devolucao), /* @__PURE__ */ React.createElement("td", null, grandTotal.reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold" }, grandTotal.vendido), /* @__PURE__ */ React.createElement("td", null, "100%"))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-chart-grid no-print" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-chart-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-chart-title" }, "Vendido (Estimado) por Categoria"), /* @__PURE__ */ React.createElement(ResponsiveContainer, { width: "100%", height: 260 }, /* @__PURE__ */ React.createElement(PieChart, null, /* @__PURE__ */ React.createElement(Pie, { data: categoryChartData, dataKey: "valor", nameKey: "name", cx: "50%", cy: "50%", outerRadius: 90, label: (d) => `${d.name}: ${d.valor}` }, categoryChartData.map((entry, idx) => /* @__PURE__ */ React.createElement(Cell, { key: entry.name, fill: PALETTE[idx % PALETTE.length], stroke: "#0b0b0c" }))), /* @__PURE__ */ React.createElement(Tooltip, { contentStyle: { background: "#151517", border: "1px solid #3a3a3d", color: "#f5f5f4" } }), /* @__PURE__ */ React.createElement(Legend, { wrapperStyle: { color: "#c9c9c9", fontSize: 12 } })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-chart-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-chart-title" }, "Vendido (Estimado) por Quiosque"), /* @__PURE__ */ React.createElement(ResponsiveContainer, { width: "100%", height: 260 }, /* @__PURE__ */ React.createElement(BarChart, { data: kioskChartData, margin: { top: 8, right: 8, left: -12, bottom: 8 } }, /* @__PURE__ */ React.createElement(CartesianGrid, { stroke: "#2a2a2d", vertical: false }), /* @__PURE__ */ React.createElement(XAxis, { dataKey: "name", tick: { fill: "#8a8a8e", fontSize: 11 }, interval: 0, angle: -20, textAnchor: "end", height: 60 }), /* @__PURE__ */ React.createElement(YAxis, { tick: { fill: "#8a8a8e", fontSize: 11 } }), /* @__PURE__ */ React.createElement(Tooltip, { contentStyle: { background: "#151517", border: "1px solid #3a3a3d", color: "#f5f5f4" } }), /* @__PURE__ */ React.createElement(Bar, { dataKey: "vendido", fill: GOLD, radius: [3, 3, 0, 0] }))))), /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title" }, "Vendido (Estimado) por Categoria e Quiosque"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Quiosque"), CATEGORY_ORDER.map((c) => /* @__PURE__ */ React.createElement("th", { key: c }, c)), /* @__PURE__ */ React.createElement("th", null, "Total"))), /* @__PURE__ */ React.createElement("tbody", null, kioskNames.map((name) => {
-    const t = kioskTotals[name] || { porCategoria: {} };
-    const total = CATEGORY_ORDER.reduce((s, c) => s + (t.porCategoria[c] || 0), 0);
-    return /* @__PURE__ */ React.createElement("tr", { key: name }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, name), CATEGORY_ORDER.map((c) => /* @__PURE__ */ React.createElement("td", { key: c }, t.porCategoria[c] || 0)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold" }, total));
-  })), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), CATEGORY_ORDER.map((c) => /* @__PURE__ */ React.createElement("td", { key: c }, grandTotal.porCategoria[c] || 0)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold" }, CATEGORY_ORDER.reduce((s, c) => s + (grandTotal.porCategoria[c] || 0), 0)))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO"));
 }
 function KioskView({
   name,
@@ -2832,6 +2822,330 @@ function itemConferido(it) {
 
 function fotoDoItem(fotos, produto) { return (fotos && fotos[normalizeProdutoKey(produto || "")]) || ""; }
 
+/* ===================== DASHBOARD (gráficos próprios, relatório e envio) ===================== */
+const PALETA_DASH = ["#c9a13b", "#d9d9dc", "#8a8a8e", "#5b6b8c", "#e9d28b", "#a0652d", "#3f8f6b"];
+const fmtPct = (v) => (v || 0).toFixed(1).replace(".", ",") + "%";
+function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+
+function buildDashboardData(state, kioskNames, kioskTotals, grandTotal, categoryChartData) {
+  const first = state.kiosks[kioskNames[0]] || {};
+  const totVend = grandTotal.vendido || 0;
+  const kiosks = kioskNames.map((name) => {
+    const t = kioskTotals[name] || { enviada: 0, devolucao: 0, reposicao: 0, vendido: 0, porCategoria: {} };
+    return { name, enviada: t.enviada || 0, devolucao: t.devolucao || 0, reposicao: t.reposicao || 0, vendido: t.vendido || 0, pct: totVend > 0 ? ((t.vendido || 0) / totVend) * 100 : 0, porCategoria: t.porCategoria || {} };
+  });
+  const lista = (categoryChartData || []).filter((c) => c.valor > 0);
+  const catTotal = lista.reduce((s, c) => s + c.valor, 0);
+  return {
+    jogo: String(first.jogo || "").trim(), data: first.data || "", responsavel: state.responsavelSeparacao || "",
+    totais: { quiosques: kioskNames.length, enviada: grandTotal.enviada || 0, devolucao: grandTotal.devolucao || 0, reposicao: grandTotal.reposicao || 0, vendido: totVend },
+    kiosks, categorias: lista.map((c) => ({ name: c.name, valor: c.valor, pct: catTotal > 0 ? (c.valor / catTotal) * 100 : 0 })),
+    porCategoriaTotal: grandTotal.porCategoria || {}, geradoEm: Date.now(),
+  };
+}
+
+function buildDashboardText(d) {
+  const L = [];
+  const t = d.totais;
+  L.push("*DASHBOARD DO EVENTO — BOTAFOGO STORE*");
+  L.push("Jogo: " + (d.jogo || "-"));
+  L.push("Data: " + (d.data || "-"));
+  L.push("Responsável: " + (d.responsavel || "-"));
+  L.push("");
+  L.push("*Visão geral*");
+  L.push("Quiosques: " + t.quiosques + " | Enviada: " + t.enviada + " | Devolução: " + t.devolucao + " | Reposição: " + t.reposicao + " | Vendido (est.): " + t.vendido);
+  L.push("");
+  L.push("*Por quiosque*");
+  d.kiosks.forEach((k) => L.push("• " + k.name + ": enviada " + k.enviada + " | devolução " + k.devolucao + " | reposição " + k.reposicao + " | vendido " + k.vendido + " (" + fmtPct(k.pct) + ")"));
+  L.push("");
+  L.push("*Vendido (est.) por categoria*");
+  if (!d.categorias.length) L.push("Sem vendas estimadas ainda.");
+  d.categorias.forEach((c) => L.push("• " + c.name + ": " + c.valor + " (" + fmtPct(c.pct) + ")"));
+  return L.join("\n");
+}
+
+function buildDashboardPdf(JsPDF, d) {
+  const doc = new JsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const W = 210, M = 14, LIM = 282;
+  let y = 0;
+  const t = d.totais;
+  const addPage = () => { doc.addPage(); y = 18; };
+  const ensure = (h) => { if (y + h > LIM) addPage(); };
+  const titulo = (txt) => { ensure(14); doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(txt, M, y); y += 7; };
+  const wrap = (txt, w) => doc.splitTextToSize(String(txt == null ? "" : txt), w);
+
+  doc.setFillColor(16, 16, 18); doc.rect(0, 0, W, 26, "F");
+  doc.setFillColor(201, 161, 59); doc.rect(0, 26, W, 1.2, "F");
+  doc.setTextColor(201, 161, 59); doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text("BOTAFOGO STORE", M, 12);
+  doc.setTextColor(225, 225, 225); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text("Dashboard do evento · Controle de abastecimento de quiosques", M, 19);
+  y = 36;
+  doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+  wrap("Jogo: " + (d.jogo || "-"), W - 2 * M).forEach((l) => { doc.text(l, M, y); y += 6.5; });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  doc.text("Data: " + (d.data || "-") + "     Responsável pela separação: " + (d.responsavel || "-"), M, y); y += 5;
+  doc.setTextColor(110, 110, 110); doc.setFontSize(8.5);
+  doc.text("Gerado em " + new Date(d.geradoEm || Date.now()).toLocaleString("pt-BR"), M, y); y += 9;
+
+  // indicadores
+  const kp = [["Quiosques", t.quiosques], ["Enviada", t.enviada], ["Devolução", t.devolucao], ["Reposição", t.reposicao], ["Vendido (est.)", t.vendido]];
+  const bw = (W - 2 * M - 4 * 3) / 5;
+  kp.forEach(([l, v], i) => {
+    const x = M + i * (bw + 3);
+    doc.setFillColor(245, 245, 245); doc.setDrawColor(220, 220, 220); doc.roundedRect(x, y, bw, 17, 1.5, 1.5, "FD");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(110, 110, 110); doc.text(l.toUpperCase(), x + 3, y + 5.5);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(14);
+    if (i === 4) doc.setTextColor(160, 120, 30); else doc.setTextColor(25, 25, 25);
+    doc.text(String(v), x + 3, y + 13);
+  });
+  y += 26;
+
+  // tabela por quiosque
+  titulo("Por quiosque");
+  const RX = [104, 126, 148, 170, 196];
+  const cab = (cols, rx, first) => {
+    doc.setFillColor(235, 235, 235); doc.rect(M, y - 4.6, W - 2 * M, 7, "F");
+    doc.setTextColor(30, 30, 30); doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
+    doc.text(first, M + 1.5, y);
+    cols.forEach((c, i) => doc.text(c, rx[i], y, { align: "right" }));
+    y += 6;
+  };
+  cab(["Enviada", "Devolução", "Reposição", "Vendido (est.)", "% vendido"], RX, "Quiosque");
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+  d.kiosks.forEach((k) => {
+    ensure(7);
+    doc.setTextColor(30, 30, 30); doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+    doc.text(String(k.name), M + 1.5, y);
+    [k.enviada, k.devolucao, k.reposicao, k.vendido, fmtPct(k.pct)].forEach((v, i) => doc.text(String(v), RX[i], y, { align: "right" }));
+    doc.setDrawColor(220, 220, 220); doc.line(M, y + 2, W - M, y + 2);
+    y += 6.3;
+  });
+  ensure(9);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(20, 20, 20);
+  doc.text("TOTAL GERAL", M + 1.5, y);
+  [t.enviada, t.devolucao, t.reposicao, t.vendido, "100%"].forEach((v, i) => doc.text(String(v), RX[i], y, { align: "right" }));
+  y += 12;
+
+  // gráfico de rosca por categoria
+  titulo("Participação por categoria (vendido estimado)");
+  ensure(66);
+  const soma = d.categorias.reduce((s, c) => s + c.valor, 0);
+  if (!soma) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(90, 90, 90);
+    doc.text("Sem vendas estimadas ainda.", M, y); y += 10;
+  } else {
+    const cx = M + 34, cy = y + 31, R = 29, r = 17;
+    let ang = 0;
+    d.categorias.forEach((c, i) => {
+      const a0 = ang; ang += (c.valor / soma) * Math.PI * 2;
+      const a1 = Math.min(ang, a0 + Math.PI * 2 - 0.001);
+      const passos = Math.max(2, Math.ceil(((a1 - a0) * 180 / Math.PI) / 3));
+      const pts = [];
+      for (let s = 0; s <= passos; s++) { const a = a0 + (a1 - a0) * s / passos; pts.push([cx + R * Math.sin(a), cy - R * Math.cos(a)]); }
+      for (let s = passos; s >= 0; s--) { const a = a0 + (a1 - a0) * s / passos; pts.push([cx + r * Math.sin(a), cy - r * Math.cos(a)]); }
+      const segs = [];
+      for (let k = 1; k < pts.length; k++) segs.push([pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]]);
+      const rgb = hexRgb(PALETA_DASH[i % PALETA_DASH.length]);
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.35);
+      doc.lines(segs, pts[0][0], pts[0][1], [1, 1], "FD", true);
+    });
+    doc.setLineWidth(0.2);
+    doc.setTextColor(25, 25, 25); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text(String(soma), cx, cy + 1, { align: "center" });
+    doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(110, 110, 110); doc.text("vendido (est.)", cx, cy + 5, { align: "center" });
+    // legenda
+    const lx = M + 80;
+    d.categorias.forEach((c, i) => {
+      const ly = y + 8 + i * 7.5;
+      const rgb = hexRgb(PALETA_DASH[i % PALETA_DASH.length]);
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.setDrawColor(150, 150, 150); doc.rect(lx, ly - 3.2, 4, 4, "FD");
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(30, 30, 30); doc.text(c.name, lx + 7, ly);
+      doc.setFont("helvetica", "bold"); doc.text(String(c.valor), lx + 78, ly, { align: "right" });
+      doc.setFont("helvetica", "normal"); doc.setTextColor(100, 100, 100); doc.text(fmtPct(c.pct), lx + 98, ly, { align: "right" });
+    });
+    y += 68;
+  }
+
+  // barras por quiosque
+  ensure(16 + d.kiosks.length * 7.5);
+  titulo("Vendido (estimado) por quiosque");
+  const max = Math.max(1, ...d.kiosks.map((k) => k.vendido));
+  const bx = M + 62, bmax = 92;
+  d.kiosks.forEach((k) => {
+    ensure(8);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(30, 30, 30); doc.text(String(k.name), M + 1.5, y);
+    doc.setFillColor(236, 236, 236); doc.rect(bx, y - 3.4, bmax, 4.6, "F");
+    if (k.vendido > 0) { doc.setFillColor(201, 161, 59); doc.rect(bx, y - 3.4, Math.max(0.6, (k.vendido / max) * bmax), 4.6, "F"); }
+    doc.setFont("helvetica", "bold"); doc.setTextColor(25, 25, 25); doc.text(k.vendido + " (" + fmtPct(k.pct) + ")", W - M, y, { align: "right" });
+    y += 7.5;
+  });
+  y += 6;
+
+  // categoria x quiosque
+  ensure(22 + (d.kiosks.length + 2) * 6.3);
+  titulo("Vendido (estimado) por categoria e quiosque");
+  const cats = CATEGORY_ORDER;
+  const curto = (c) => (c === "PERSONALIZAÇÃO" ? "PERSON." : c === "ACESSÓRIOS" ? "ACESS." : c);
+  const RXc = [88, 106, 124, 142, 160, 178, 196];
+  cab(cats.map(curto).concat(["Total"]).slice(0, 7), RXc, "Quiosque");
+  d.kiosks.forEach((k) => {
+    ensure(7);
+    doc.setTextColor(30, 30, 30); doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    doc.text(String(k.name), M + 1.5, y);
+    const tot = cats.reduce((s, c) => s + (k.porCategoria[c] || 0), 0);
+    cats.map((c) => k.porCategoria[c] || 0).concat([tot]).slice(0, 7).forEach((v, i) => doc.text(String(v), RXc[i], y, { align: "right" }));
+    doc.setDrawColor(220, 220, 220); doc.line(M, y + 2, W - M, y + 2);
+    y += 6.3;
+  });
+  ensure(9);
+  doc.setFont("helvetica", "bold"); doc.setTextColor(20, 20, 20); doc.text("TOTAL GERAL", M + 1.5, y);
+  const totalCat = cats.reduce((s, c) => s + (d.porCategoriaTotal[c] || 0), 0);
+  cats.map((c) => d.porCategoriaTotal[c] || 0).concat([totalCat]).slice(0, 7).forEach((v, i) => doc.text(String(v), RXc[i], y, { align: "right" }));
+
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+    doc.text("SAF BOTAFOGO", M, 290);
+    doc.text("Página " + i + " de " + n, W - M, 290, { align: "right" });
+  }
+  return doc;
+}
+
+function DashboardActions({ dados, setToast }) {
+  const texto = useMemo(() => buildDashboardText(dados), [dados]);
+  const [busy, setBusy] = useState(false);
+  const base = "Dashboard_" + (dados.jogo || "evento").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "") + "_" + String(dados.data || "").replace(/[^0-9]/g, "");
+  const titulo = "Dashboard do evento — " + (dados.jogo || "") + " — " + (dados.data || "");
+  const toast = (m) => { if (setToast) setToast(m); };
+  const doCopy = async () => { toast((await copyText(texto)) ? "Resumo copiado. É só colar no WhatsApp ou no e-mail." : "Não consegui copiar sozinho — tente de novo."); };
+  const doWhats = () => { window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank", "noopener"); };
+  const doMail = () => {
+    if (texto.length > 1800) toast("Resumo longo: se o e-mail abrir cortado, use 'Copiar resumo' ou o PDF.");
+    window.location.href = "mailto:?subject=" + encodeURIComponent(titulo) + "&body=" + encodeURIComponent(texto);
+  };
+  const doPdf = async (modo) => {
+    setBusy(true);
+    try {
+      const JsPDF = await loadJsPdf();
+      const doc = buildDashboardPdf(JsPDF, dados);
+      const filename = base + ".pdf";
+      const blob = doc.output("blob");
+      if (modo === "share") {
+        const file = new File([blob], filename, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: titulo, text: titulo }); setBusy(false); return; }
+          catch (e) { if (e && e.name === "AbortError") { setBusy(false); return; } }
+        }
+        toast("Este aparelho não compartilha arquivo direto: o PDF foi baixado — é só anexar no WhatsApp ou e-mail.");
+      }
+      triggerDownload(blob, filename);
+    } catch (e) {
+      toast("Não consegui gerar o PDF (" + (e && e.message ? e.message : "erro") + "). Use 'Imprimir / Salvar PDF'.");
+    }
+    setBusy(false);
+  };
+  return __h("div", { className: "bfr-dash-actions no-print" },
+    __h("button", { type: "button", className: "bfr-btn", onClick: () => window.print(), title: "Imprime o dashboard inteiro, com os gráficos" }, "🖨 Imprimir / Salvar PDF"),
+    __h("button", { type: "button", className: "bfr-btn", onClick: () => doPdf("download"), disabled: busy }, "📄 Baixar relatório PDF"),
+    __h("button", { type: "button", className: "bfr-btn bfr-btn-gold", onClick: () => doPdf("share"), disabled: busy }, "📤 Compartilhar PDF"),
+    __h("button", { type: "button", className: "bfr-btn", onClick: doWhats }, "💬 WhatsApp"),
+    __h("button", { type: "button", className: "bfr-btn", onClick: doMail }, "✉️ E-mail"),
+    __h("button", { type: "button", className: "bfr-btn", onClick: doCopy }, "📋 Copiar resumo"));
+}
+
+function arcoAnel(cx, cy, R, r, a0, a1) {
+  const pt = (rad, a) => [cx + rad * Math.sin(a), cy - rad * Math.cos(a)];
+  if (a1 - a0 >= Math.PI * 2 - 0.0005) a1 = a0 + Math.PI * 2 - 0.0005;
+  const grande = a1 - a0 > Math.PI ? 1 : 0;
+  const p0 = pt(R, a0), p1 = pt(R, a1), p2 = pt(r, a1), p3 = pt(r, a0);
+  const f = (n) => n.toFixed(2);
+  return "M" + f(p0[0]) + " " + f(p0[1]) + " A" + R + " " + R + " 0 " + grande + " 1 " + f(p1[0]) + " " + f(p1[1]) + " L" + f(p2[0]) + " " + f(p2[1]) + " A" + r + " " + r + " 0 " + grande + " 0 " + f(p3[0]) + " " + f(p3[1]) + " Z";
+}
+
+function DonutChart({ categorias }) {
+  const [hover, setHover] = useState(-1);
+  const [tip, setTip] = useState(null);
+  const ref = useRef(null);
+  const soma = categorias.reduce((s, c) => s + c.valor, 0);
+  if (!soma) return __h("div", { className: "bfr-rnc-meta" }, "Sem vendas estimadas para o gráfico ainda.");
+  let ang = 0;
+  const fatias = categorias.map((c, i) => { const a0 = ang; ang += (c.valor / soma) * Math.PI * 2; return { c, i, a0, a1: ang }; });
+  const mover = (e, i) => { const r = ref.current.getBoundingClientRect(); setHover(i); setTip({ x: e.clientX - r.left + 14, y: e.clientY - r.top + 14, c: categorias[i] }); };
+  const sair = () => { setHover(-1); setTip(null); };
+  const ativo = hover >= 0 ? categorias[hover] : null;
+  return __h("div", { className: "bfr-donut-wrap", ref },
+    __h("svg", { className: "bfr-donut-svg", viewBox: "0 0 240 240", role: "img", "aria-label": "Participação por categoria" },
+      fatias.map(({ c, i, a0, a1 }) => __h("path", { key: c.name, d: arcoAnel(120, 120, 108, 64, a0, a1), fill: PALETA_DASH[i % PALETA_DASH.length], stroke: "#1a1a1c", strokeWidth: 1.5, style: { opacity: hover >= 0 && hover !== i ? 0.45 : 1 }, onMouseMove: (e) => mover(e, i), onMouseLeave: sair })),
+      __h("text", { x: 120, y: 120, textAnchor: "middle", className: "bfr-donut-total" }, ativo ? ativo.valor : soma),
+      __h("text", { x: 120, y: 142, textAnchor: "middle", className: "bfr-donut-sub" }, ativo ? ativo.name : "vendido (est.)")),
+    __h("div", { className: "bfr-legend" }, categorias.map((c, i) =>
+      __h("div", { key: c.name, className: "bfr-legend-row" + (hover === i ? " hover" : ""), onMouseMove: (e) => mover(e, i), onMouseLeave: sair },
+        __h("span", { className: "bfr-legend-chip", style: { background: PALETA_DASH[i % PALETA_DASH.length] } }),
+        __h("span", { className: "bfr-legend-name" }, c.name), __h("span", { className: "bfr-legend-val" }, c.valor), __h("span", { className: "bfr-legend-pct" }, fmtPct(c.pct))))),
+    tip && __h("div", { className: "bfr-tip no-print", style: { left: tip.x, top: tip.y } }, __h("strong", null, tip.c.name), " — " + tip.c.valor + " (" + fmtPct(tip.c.pct) + ")"));
+}
+
+function BarrasQuiosques({ kiosks }) {
+  const [hover, setHover] = useState(-1);
+  const [tip, setTip] = useState(null);
+  const ref = useRef(null);
+  const max = Math.max(1, ...kiosks.map((k) => k.vendido));
+  const mover = (e, i) => { const r = ref.current.getBoundingClientRect(); setHover(i); setTip({ x: e.clientX - r.left + 14, y: e.clientY - r.top + 14, k: kiosks[i] }); };
+  const sair = () => { setHover(-1); setTip(null); };
+  return __h("div", { className: "bfr-hbars", ref },
+    kiosks.map((k, i) => __h("div", { key: k.name, className: "bfr-hbar-row" + (hover === i ? " hover" : ""), onMouseMove: (e) => mover(e, i), onMouseLeave: sair },
+      __h("div", { className: "bfr-hbar-name", title: k.name }, k.name),
+      __h("div", { className: "bfr-hbar-track" }, __h("div", { className: "bfr-hbar-fill", style: { width: (k.vendido / max) * 100 + "%" } })),
+      __h("div", { className: "bfr-hbar-val" }, k.vendido, __h("small", null, " " + fmtPct(k.pct))))),
+    tip && __h("div", { className: "bfr-tip no-print", style: { left: tip.x, top: tip.y } }, __h("strong", null, tip.k.name), " — vendido " + tip.k.vendido + " (" + fmtPct(tip.k.pct) + ")"));
+}
+
+function DashboardView({ state, kioskNames, kioskTotals, grandTotal, categoryChartData, kioskChartData, setToast }) {
+  const dados = useMemo(() => buildDashboardData(state, kioskNames, kioskTotals, grandTotal, categoryChartData), [state, kioskNames, kioskTotals, grandTotal, categoryChartData]);
+  useEffect(() => { loadJsPdf().catch(() => {}); }, []);
+  const t = dados.totais;
+  const cats = CATEGORY_ORDER;
+  return __h("div", { className: "bfr-print-area" },
+    __h("div", { className: "bfr-print-only bfr-print-head" },
+      __h(StarBadge, { size: 40 }),
+      __h("div", null, __h("div", { className: "bfr-title" }, "BOTAFOGO STORE"), __h("div", { className: "bfr-subtitle" }, "Dashboard do Evento — Controle de Quiosques"),
+        __h("div", { className: "bfr-subtitle" }, "Jogo: " + (dados.jogo || "-") + "  ·  Data: " + (dados.data || "-") + "  ·  Responsável: " + (dados.responsavel || "-")))),
+    __h("div", { className: "bfr-dash-head" },
+      __h("h2", { className: "bfr-section-title", style: { margin: 0, border: "none", padding: 0 } }, "Visão Geral"),
+      __h(DashboardActions, { dados, setToast })),
+    __h("div", { className: "bfr-stat-grid", style: { marginTop: 14 } },
+      __h(StatCard, { label: "Quiosques", value: t.quiosques }), __h(StatCard, { label: "Qtd. Enviada", value: t.enviada }),
+      __h(StatCard, { label: "Devolução (Pós-Jogo)", value: t.devolucao }), __h(StatCard, { label: "Reposição", value: t.reposicao }),
+      __h(StatCard, { label: "Vendido (Estimado)", value: t.vendido, sub: "Enviada − Devolução + Reposição" })),
+
+    __h("h2", { className: "bfr-section-title" }, "Por Quiosque"),
+    __h("div", { className: "bfr-table-wrap" },
+      __h("table", { className: "bfr-table" },
+        __h("thead", null, __h("tr", null, ["Quiosque", "Qtd. Enviada", "Devolução (Pós-Jogo)", "Reposição", "Vendido (Estimado)", "% Participação"].map((c) => __h("th", { key: c }, c)))),
+        __h("tbody", null, dados.kiosks.map((k) => __h("tr", { key: k.name },
+          __h("td", { className: "bfr-td-strong" }, k.name), __h("td", null, k.enviada), __h("td", null, k.devolucao), __h("td", null, k.reposicao),
+          __h("td", { className: "bfr-td-gold" }, k.vendido),
+          __h("td", null, __h("div", { className: "bfr-bar-cell" }, __h("div", { className: "bfr-bar-track" }, __h("div", { className: "bfr-bar-fill", style: { width: k.pct + "%" } })), __h("span", null, fmtPct(k.pct))))))),
+        __h("tfoot", null, __h("tr", null, __h("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), __h("td", null, t.enviada), __h("td", null, t.devolucao), __h("td", null, t.reposicao), __h("td", { className: "bfr-td-gold" }, t.vendido), __h("td", null, "100%"))))),
+
+    __h("div", { className: "bfr-chart-grid" },
+      __h("div", { className: "bfr-chart-box" },
+        __h("div", { className: "bfr-chart-title" }, "Participação por categoria (vendido estimado)"),
+        __h(DonutChart, { categorias: dados.categorias })),
+      __h("div", { className: "bfr-chart-box" },
+        __h("div", { className: "bfr-chart-title" }, "Vendido (estimado) por quiosque"),
+        __h(BarrasQuiosques, { kiosks: dados.kiosks }))),
+
+    __h("h2", { className: "bfr-section-title" }, "Vendido (Estimado) por Categoria e Quiosque"),
+    __h("div", { className: "bfr-table-wrap" },
+      __h("table", { className: "bfr-table" },
+        __h("thead", null, __h("tr", null, __h("th", null, "Quiosque"), cats.map((c) => __h("th", { key: c }, c)), __h("th", null, "Total"))),
+        __h("tbody", null, dados.kiosks.map((k) => __h("tr", { key: k.name },
+          __h("td", { className: "bfr-td-strong" }, k.name), cats.map((c) => __h("td", { key: c }, k.porCategoria[c] || 0)),
+          __h("td", { className: "bfr-td-gold" }, cats.reduce((s, c) => s + (k.porCategoria[c] || 0), 0))))),
+        __h("tfoot", null, __h("tr", null, __h("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), cats.map((c) => __h("td", { key: c }, dados.porCategoriaTotal[c] || 0)),
+          __h("td", { className: "bfr-td-gold" }, cats.reduce((s, c) => s + (dados.porCategoriaTotal[c] || 0), 0)))))));
+}
+
 function ProductPhotoUpload({ value, onChange }) {
   return /* @__PURE__ */ React.createElement("label", { className: `bfr-foto-upload ${value ? "" : "bfr-foto-empty"}`, title: "Anexar foto do produto" }, value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Foto do produto", className: "bfr-foto-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-foto-placeholder" }, "\u{1F4F7}"), /* @__PURE__ */ React.createElement(
     "input",
@@ -2985,6 +3299,30 @@ function GlobalStyle() {
       .bfr-chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:20px; }
       .bfr-chart-box { background:#141416; border:1px solid #232326; border-radius:5px; padding:14px; }
       .bfr-chart-title { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#8a8a8e; margin-bottom:6px; }
+      .bfr-dash-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+      .bfr-dash-actions { display:flex; flex-wrap:wrap; gap:8px; }
+      .bfr-chart-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(400px, 1fr)); gap:18px; margin-top:22px; align-items:stretch; }
+      .bfr-chart-box { position:relative; }
+      .bfr-donut-wrap { display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; padding:6px 4px; }
+      .bfr-donut-svg { width:210px; height:210px; flex:0 0 auto; }
+      .bfr-donut-total { fill:#f5f5f4; font:700 30px 'Inter',sans-serif; }
+      .bfr-donut-sub { fill:#9a9aa0; font:12px 'Inter',sans-serif; }
+      .bfr-legend { flex:1; min-width:210px; display:flex; flex-direction:column; gap:4px; font-size:13px; }
+      .bfr-legend-row { display:flex; align-items:center; gap:8px; padding:4px 8px; border-radius:5px; }
+      .bfr-legend-row.hover, .bfr-hbar-row.hover { background:#26262a; }
+      .bfr-legend-chip { width:13px; height:13px; border-radius:3px; flex:0 0 auto; border:1px solid rgba(255,255,255,0.3); }
+      .bfr-legend-name { flex:1; color:#ececec; }
+      .bfr-legend-val { color:#ffffff; font-weight:700; }
+      .bfr-legend-pct { color:#a0a0a6; width:54px; text-align:right; }
+      .bfr-hbars { display:flex; flex-direction:column; gap:6px; position:relative; padding:4px 0; }
+      .bfr-hbar-row { display:grid; grid-template-columns:minmax(120px, 190px) 1fr 108px; align-items:center; gap:10px; padding:4px 6px; border-radius:5px; }
+      .bfr-hbar-name { font-size:12.5px; color:#ececec; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .bfr-hbar-track { height:14px; background:#26262a; border-radius:3px; overflow:hidden; }
+      .bfr-hbar-fill { height:100%; background:#c9a13b; border-radius:3px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .bfr-hbar-val { font-size:13px; color:#ffffff; font-weight:700; text-align:right; }
+      .bfr-hbar-val small { color:#a0a0a6; font-weight:400; font-size:11px; }
+      .bfr-tip { position:absolute; z-index:40; pointer-events:none; background:#0b0b0c; color:#ffffff; border:1px solid #c9a13b; border-radius:6px; padding:7px 11px; font-size:13px; line-height:1.35; box-shadow:0 8px 22px rgba(0,0,0,0.65); white-space:nowrap; }
+      .bfr-tip strong { color:#e9d28b; }
 
       .bfr-sheet-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
       .bfr-sheet-actions { display:flex; gap:8px; }
@@ -3171,6 +3509,19 @@ function GlobalStyle() {
         .bfr-table-wrap { border-color:#ccc; overflow:visible !important; }
         .bfr-table th, .bfr-table td { border-color:#ddd !important; }
         .bfr-card, .bfr-chart-box { background:#f7f7f7 !important; border-color:#ddd !important; }
+        .bfr-dash-actions, .bfr-tip { display:none !important; }
+        .bfr-chart-grid { grid-template-columns:1fr 1fr !important; gap:12px !important; page-break-inside:avoid; break-inside:avoid; }
+        .bfr-chart-box { page-break-inside:avoid; break-inside:avoid; }
+        .bfr-donut-svg { width:150px !important; height:150px !important; }
+        .bfr-donut-total { fill:#111 !important; } .bfr-donut-sub { fill:#555 !important; }
+        .bfr-legend-name, .bfr-hbar-name { color:#111 !important; } .bfr-legend-val, .bfr-hbar-val { color:#000 !important; }
+        .bfr-legend-pct, .bfr-hbar-val small { color:#444 !important; }
+        .bfr-legend-chip { border-color:#888 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .bfr-donut-svg path { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .bfr-hbar-track { background:#e3e3e3 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .bfr-hbar-row { grid-template-columns:175px 1fr 100px !important; }
+        .bfr-chart-title { color:#333 !important; }
+        .bfr-bar-track { background:#e3e3e3 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         .bfr-card-value { color:#111 !important; }
         .bfr-section-title, .bfr-kiosk-name, .bfr-title { color:#111 !important; }
 
