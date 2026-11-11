@@ -346,6 +346,7 @@ function migrateEscudos(st) {
     customTeamLogos: st.customTeamLogos || {},
     hiddenStaticLogos: st.hiddenStaticLogos || [],
     ...migrarControles(st),
+    ...garantirPersonalizacao({ ...st, ...migrarControles(st) }),
     rncs: Array.isArray(st.rncs) ? st.rncs : st.rncs ? Object.values(st.rncs) : [],
     history: Array.isArray(st.history) ? st.history : st.history ? Object.values(st.history) : [],
     responsavelSeparacao: responsavelSeparacao || "Rafael"
@@ -402,8 +403,7 @@ function defaultState() {
     kiosks[name] = makeKioskFromSeed(SEED[name]);
   });
   return {
-    order,
-    kiosks,
+    ...garantirPersonalizacao({ order, kiosks }),
     catalog: {},
     productPhotos: {},
     escudoCasa: BOTAFOGO_CREST,
@@ -1129,8 +1129,12 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
         updatedNames.push(`\u26A0 falha em ${file.name}`);
       }
     }
+    setState((s) => desviarPersonalizacao(s));
+    await new Promise((r) => setTimeout(r, 150));
+    const desviados = window.__desvioN || 0;
+    window.__desvioN = 0;
     if (updatedNames.length) {
-      setToast(`Importado: ${updatedNames.join(", ")}`);
+      setToast(`Importado: ${updatedNames.join(", ")}` + (desviados ? ` · ${desviados} itens de personalização/patch foram para as abas Personalização` : ""));
       setActiveTab(updatedNames[0].startsWith("\u26A0") ? "DASHBOARD" : updatedNames[0]);
     } else {
       setToast("Nenhuma tabela reconhecida nos arquivos selecionados.");
@@ -1213,7 +1217,7 @@ function AppShell({ authUser, papel, acessos, onAcessosChange, onLogout }) {
         e.target.value = "";
       }
     }
-  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar Excel"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: clearAllKiosks, title: "Apagar a lista de produtos de todos os quiosques de uma vez" }, "\u{1F5D1} Limpar todos"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Na caixa que abrir, escolha 'Salvar como PDF' pra gerar o arquivo e enviar por WhatsApp" }, "\u{1F5B6} Imprimir / Salvar PDF"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser + " \u00B7 " + (PAPEIS[papel] || "S\xF3 visualiza")), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: trocarMinhaSenha, title: "Trocar a minha senha" }, "\u{1F511}"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-gold", onClick: () => fileInputRef.current?.click() }, "\u2B71 Importar pr\xE9-jogo"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn bfr-btn-danger", onClick: clearAllKiosks, title: "Apagar a lista de produtos de todos os quiosques de uma vez" }, "\u{1F5D1} Limpar todos"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: handlePrint, title: "Na caixa que abrir, escolha 'Salvar como PDF' pra gerar o arquivo e enviar por WhatsApp" }, "\u{1F5B6} Imprimir / Salvar PDF"), /* @__PURE__ */ React.createElement("span", { className: "bfr-user-badge" }, authUser + " \u00B7 " + (PAPEIS[papel] || "S\xF3 visualiza")), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: trocarMinhaSenha, title: "Trocar a minha senha" }, "\u{1F511}"), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn", onClick: onLogout }, "Sair"))), /* @__PURE__ */ React.createElement("nav", { className: "bfr-tabs no-print" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: `bfr-tab ${activeTab === "DASHBOARD" ? "active" : ""}`,
@@ -1379,7 +1383,7 @@ function KioskView({
       askConfirm,
       titulo: "Escolher time adversário"
     }
-  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(ControleField, { value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v), onGenerate: () => onGenerateControle(name) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA do R\xE1dio", value: kiosk.radio || "", onChange: (v) => onMeta("radio", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA M\xE1quina de Venda", value: kiosk.maquina || "", onChange: (v) => onMeta("maquina", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id, className: itemDivergencias(it).length ? "bfr-row-alert" : "", title: itemDivergencias(it).join(" \u2022 ") }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("input", { className: "bfr-input", value: kiosk.jogo, onChange: (e) => onMeta("jogo", e.target.value) }))), /* @__PURE__ */ React.createElement(MetaField, { label: "Data", value: kiosk.data, onChange: (v) => onMeta("data", v) }), /* @__PURE__ */ React.createElement(ControleField, { value: kiosk.numeroControle, onChange: (v) => onMeta("numeroControle", v), onGenerate: () => onGenerateControle(name) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA do R\xE1dio", value: kiosk.radio || "", onChange: (v) => onMeta("radio", v) }), /* @__PURE__ */ React.createElement(MetaField, { label: "N\xBA M\xE1quina de Venda", value: kiosk.maquina || "", onChange: (v) => onMeta("maquina", v) })), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table bfr-table-items" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", { style: { width: 54 } }, "Foto"), /* @__PURE__ */ React.createElement("th", null, "Produto (Descri\xE7\xE3o)"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Tam."), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Enviada"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", { className: "bfr-mostruario-col", style: { width: 70 } }, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", { style: { width: 70 } }, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-vendido-col", style: { width: 80 } }, "Vendido (Est.)"), /* @__PURE__ */ React.createElement("th", { className: "no-print", style: { width: 36 } }))), /* @__PURE__ */ React.createElement("tbody", null, sortedItems.map((it) => /* @__PURE__ */ React.createElement("tr", { key: it.id, className: itemDivergencias(it).length ? "bfr-row-alert" : itemConferido(it) ? "bfr-row-ok" : "", title: itemDivergencias(it).length ? itemDivergencias(it).join(" \u2022 ") : itemConferido(it) ? "Conferido: tudo certo" : "" }, /* @__PURE__ */ React.createElement("td", { className: "bfr-foto-td" }, /* @__PURE__ */ React.createElement(ProductPhotoUpload, { value: (productPhotos || {})[normalizeProdutoKey(it.produto)] || "", onChange: (dataUrl) => onPhotoChange(it.produto, dataUrl) })), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-wide no-print", value: it.produto, onChange: (e) => onItemField(it.id, "produto", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value" }, it.produto)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement("input", { className: "bfr-input bfr-input-num no-print", value: it.tamanho, onChange: (e) => onItemField(it.id, "tamanho", e.target.value) }), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, it.tamanho)), /* @__PURE__ */ React.createElement("td", null, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "number",
@@ -1419,7 +1423,7 @@ function KioskView({
       value: it.reposicao,
       onChange: (e) => onItemField(it.id, "reposicao", e.target.value)
     }
-  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement(RowRncButton, { it, rncs: kioskRncs, onRequest: requestRncForItem }), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn no-print", title: "Gerar etiqueta com c\xF3digo de barras", onClick: () => onEtiqueta(it) }, "\u{1F3F7}"), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement(KioskRncPanel, { name, kiosk, rncs: kioskRncs, responsavel: responsavelSeparacao, draft: rncDraft && rncDraft.quiosque === name ? rncDraft : null, onDraftDone: () => setRncDraft(null), onAdd: onAddRnc, onToggle: onToggleRnc, onDelete: onDeleteRnc, askConfirm, setToast }), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
+  ), /* @__PURE__ */ React.createElement("span", { className: "bfr-print-value bfr-print-center" }, toNum(it.reposicao) === 0 ? "" : it.reposicao)), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-td-center bfr-vendido-col" }, vendidoEstimado(it)), /* @__PURE__ */ React.createElement("td", { className: "no-print" }, /* @__PURE__ */ React.createElement(RowRncButton, { it, rncs: kioskRncs, onRequest: requestRncForItem }), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn no-print", title: "Gerar etiqueta com c\xF3digo de barras", onClick: () => onEtiqueta(it) }, "\u{1F3F7}"), /* @__PURE__ */ React.createElement("button", { className: "bfr-icon-btn", onClick: () => onRemoveItem(it.id), title: "Remover item" }, "\u2715"))))))), /* @__PURE__ */ React.createElement("button", { className: "bfr-btn no-print", onClick: onAddItem, style: { marginTop: 10 } }, "+ Adicionar item"), /* @__PURE__ */ React.createElement(KioskRncPanel, { name, kiosk, rncs: kioskRncs, responsavel: responsavelSeparacao, draft: rncDraft && rncDraft.quiosque === name ? rncDraft : null, onDraftDone: () => setRncDraft(null), onAdd: onAddRnc, onToggle: onToggleRnc, onDelete: onDeleteRnc, askConfirm, setToast, productPhotos }), /* @__PURE__ */ React.createElement("div", { className: "bfr-resumo-assinatura-block" }, /* @__PURE__ */ React.createElement("h2", { className: "bfr-section-title", style: { marginTop: 28 } }, "Resumo por Categoria"), /* @__PURE__ */ React.createElement("div", { className: "bfr-table-wrap" }, /* @__PURE__ */ React.createElement("table", { className: "bfr-table" }, /* @__PURE__ */ React.createElement("thead", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("th", null, "Categoria"), /* @__PURE__ */ React.createElement("th", null, "Enviada"), /* @__PURE__ */ React.createElement("th", null, "Conf. Pr\xE9-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Mostru\xE1rio"), /* @__PURE__ */ React.createElement("th", null, "Devol. P\xF3s-Jogo"), /* @__PURE__ */ React.createElement("th", null, "Reposi\xE7\xE3o"), /* @__PURE__ */ React.createElement("th", { className: "bfr-resumo-last-col" }, "Vendido (Est.)"))), /* @__PURE__ */ React.createElement("tbody", null, cats.map((c) => /* @__PURE__ */ React.createElement("tr", { key: c }, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, c), /* @__PURE__ */ React.createElement("td", null, byCategory[c].enviada), /* @__PURE__ */ React.createElement("td", null, byCategory[c].confPreJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].mostruario), /* @__PURE__ */ React.createElement("td", null, byCategory[c].devolucaoPosJogo), /* @__PURE__ */ React.createElement("td", null, byCategory[c].reposicao), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, byCategory[c].vendido)))), /* @__PURE__ */ React.createElement("tfoot", null, /* @__PURE__ */ React.createElement("tr", null, /* @__PURE__ */ React.createElement("td", { className: "bfr-td-strong" }, "TOTAL GERAL"), /* @__PURE__ */ React.createElement("td", null, totals?.enviada || 0), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].confPreJogo, 0)), /* @__PURE__ */ React.createElement("td", null, cats.reduce((s, c) => s + byCategory[c].mostruario, 0)), /* @__PURE__ */ React.createElement("td", null, totals?.devolucao || 0), /* @__PURE__ */ React.createElement("td", null, totals?.reposicao || 0), /* @__PURE__ */ React.createElement("td", { className: "bfr-td-gold bfr-resumo-last-col" }, totals?.vendido || 0))))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-grid bfr-print-only" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "PR\xC9-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" }))), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-box" }, /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-title" }, "P\xD3S-JOGO"), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura BFR"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })), /* @__PURE__ */ React.createElement("div", { className: "bfr-sign-field" }, /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-label" }, "Assinatura Supervisor"), /* @__PURE__ */ React.createElement("span", { className: "bfr-sign-underline" })))), /* @__PURE__ */ React.createElement("div", { className: "bfr-print-footer" }, "SAF BOTAFOGO")));
 }
 function resizeImageToDataUrl(file, maxDim, quality) {
   return new Promise((resolve, reject) => {
@@ -1679,9 +1683,13 @@ function itemDivergencias(it) {
 }
 
 function DivergenciasBadge({ items }) {
-  const n = (items || []).filter((it) => itemDivergencias(it).length > 0).length;
-  if (!n) return null;
-  return __h("span", { className: "bfr-div-badge no-print", title: "Itens com linha vermelha na tabela" }, "⚠ " + n + (n === 1 ? " divergência" : " divergências"));
+  const lista = items || [];
+  const n = lista.filter((it) => itemDivergencias(it).length > 0).length;
+  const ok = lista.filter((it) => itemConferido(it)).length;
+  if (!n && !ok) return null;
+  return __h(React.Fragment, null,
+    n > 0 && __h("span", { className: "bfr-div-badge no-print", title: "Itens com linha vermelha na tabela" }, "⚠ " + n + (n === 1 ? " divergência" : " divergências")),
+    ok > 0 && __h("span", { className: "bfr-ok-badge no-print", title: "Itens conferidos sem divergência (linha verde)" }, "✓ " + ok + (ok === 1 ? " conferido" : " conferidos")));
 }
 
 // "foto" do jogo: resumo compacto da operação (usado no relatório e no histórico)
@@ -1705,6 +1713,7 @@ function makeGameSnapshot(state, withPhotos) {
   const rncs = (state.rncs || []).map((r) => {
     const c = { ...r };
     if (!withPhotos) delete c.foto;
+    else c.fotoItem = fotoDoItem(state.productPhotos, r.produto);
     return c;
   });
   return {
@@ -1853,23 +1862,29 @@ function buildReportPdf(JsPDF, snap) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
     const linhas = [];
     det.forEach((d) => wrap(d, W - 2 * M - 5).forEach((l) => linhas.push(l)));
-    let foto = null;
-    if (r.foto) {
+    const fotos = [];
+    [r.fotoItem, r.foto].forEach((src) => {
+      if (!src) return;
       try {
-        const p = doc.getImageProperties(r.foto);
-        let w = 45, h = (w * p.height) / p.width;
-        if (h > 55) { h = 55; w = (h * p.width) / p.height; }
-        foto = { w, h, tipo: p.fileType || "JPEG" };
-      } catch (e) { foto = null; }
-    }
-    const altura = 7 + linhas.length * 4.6 + (foto ? foto.h + 3 : 0) + 4;
+        const p = doc.getImageProperties(src);
+        let w = 38, h = (w * p.height) / p.width;
+        if (h > 48) { h = 48; w = (h * p.width) / p.height; }
+        fotos.push({ src, w, h, tipo: p.fileType || "JPEG" });
+      } catch (e) {}
+    });
+    const fotoH = fotos.length ? Math.max(...fotos.map((f) => f.h)) : 0;
+    const altura = 7 + linhas.length * 4.6 + (fotoH ? fotoH + 3 : 0) + 4;
     ensure(altura);
     doc.setFillColor(201, 161, 59); doc.rect(M, y - 3.8, 1.2, altura - 4, "F");
     doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(25, 25, 25);
     doc.text(titulo, M + 4, y); y += 5.6;
     doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(50, 50, 50);
     linhas.forEach((l) => { doc.text(l, M + 4, y); y += 4.6; });
-    if (foto) { try { doc.addImage(r.foto, foto.tipo, M + 4, y, foto.w, foto.h); } catch (e) {} y += foto.h + 3; }
+    if (fotos.length) {
+      let fx = M + 4;
+      fotos.forEach((f) => { try { doc.addImage(f.src, f.tipo, fx, y, f.w, f.h); } catch (e) {} fx += f.w + 4; });
+      y += fotoH + 3;
+    }
     y += 4;
   });
 
@@ -2026,6 +2041,7 @@ function RncView({ state, onAdd, onToggle, onDelete, onCloseGame, askConfirm, se
           r.acao && __h("div", { className: "bfr-rnc-meta" }, "Ação: " + r.acao),
           __h("div", { className: "bfr-rnc-meta" }, (r.responsavel ? r.responsavel + " · " : "") + new Date(r.createdAt || Date.now()).toLocaleString("pt-BR"))
         ),
+        fotoDoItem(state.productPhotos, r.produto) && __h("img", { src: fotoDoItem(state.productPhotos, r.produto), alt: "Foto do item", title: "Foto do item", className: "bfr-rnc-foto" }),
         r.foto && __h("img", { src: r.foto, alt: "Foto da RNC", className: "bfr-rnc-foto" }),
         __h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
           __h("button", { type: "button", className: "bfr-btn", onClick: () => onToggle(r.id) }, r.resolvida ? "Reabrir" : "Resolver"),
@@ -2104,7 +2120,7 @@ function draftFromItem(it, quiosque) {
   };
 }
 
-function makeKioskSnapshot(name, k, rncs, responsavel) {
+function makeKioskSnapshot(name, k, rncs, responsavel, productPhotos) {
   let enviada = 0, devolucao = 0, reposicao = 0, vendido = 0, divergencias = 0;
   (k.items || []).forEach((it) => {
     enviada += toNum(it.qtdEnviada); devolucao += toNum(it.devolucaoPosJogo); reposicao += toNum(it.reposicao);
@@ -2116,7 +2132,7 @@ function makeKioskSnapshot(name, k, rncs, responsavel) {
     data: k.data || "",
     responsavel: responsavel || "",
     kiosks: [{ name, numeroControle: k.numeroControle || "", radio: k.radio || "", maquina: k.maquina || "", itens: (k.items || []).length, enviada, devolucao, reposicao, vendido, divergencias }],
-    rncs: rncs || [],
+    rncs: (rncs || []).map((r) => ({ ...r, fotoItem: fotoDoItem(productPhotos, r.produto) })),
     totais: { enviada, devolucao, reposicao, vendido, divergencias },
     geradoEm: Date.now(),
   };
@@ -2132,22 +2148,28 @@ function RowRncButton({ it, rncs, onRequest }) {
   return __h("button", { type: "button", className: "bfr-rnc-req no-print", title: divs.join(" • "), onClick: () => onRequest(it) }, "⚠ RNC");
 }
 
-function KioskRncPanel({ name, kiosk, rncs, responsavel, draft, onDraftDone, onAdd, onToggle, onDelete, askConfirm, setToast }) {
+function KioskRncPanel({ name, kiosk, rncs, responsavel, draft, onDraftDone, onAdd, onToggle, onDelete, askConfirm, setToast, productPhotos }) {
   const blank = { tipo: RNC_TIPOS[0], produto: "", tamanho: "", qtd: "", descricao: "", acao: "", foto: "", itemKey: "" };
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
   const ref = useRef(null);
   const fileRef = useRef(null);
+  const formRef = useRef(null);
+  const descRef = useRef(null);
+  const focarFormulario = () => setTimeout(() => {
+    if (formRef.current && formRef.current.scrollIntoView) formRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (descRef.current) descRef.current.focus();
+  }, 90);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const items = kiosk.items || [];
   const pendentes = items.filter((it) => itemDivergencias(it).length > 0 && !rncs.some((r) => r.itemKey === rncItemKey(it)));
-  const snap = useMemo(() => makeKioskSnapshot(name, kiosk, rncs, responsavel), [name, kiosk, rncs, responsavel]);
+  const snap = useMemo(() => makeKioskSnapshot(name, kiosk, rncs, responsavel, productPhotos), [name, kiosk, rncs, responsavel, productPhotos]);
 
   useEffect(() => {
     if (!draft) return;
     setOpen(true);
     setForm({ ...blank, tipo: draft.tipo, produto: draft.produto, tamanho: draft.tamanho, qtd: draft.qtd, descricao: draft.descricao, itemKey: draft.itemKey });
-    setTimeout(() => { if (ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+    setTimeout(() => { if (ref.current && ref.current.scrollIntoView) ref.current.scrollIntoView({ behavior: "smooth", block: "center" }); if (descRef.current) descRef.current.focus(); }, 60);
     if (onDraftDone) onDraftDone();
   }, [draft]);
 
@@ -2176,19 +2198,20 @@ function KioskRncPanel({ name, kiosk, rncs, responsavel, draft, onDraftDone, onA
       __h("div", { className: "bfr-rnc-meta", style: { color: "#f0a0a0" } }, "⚠ " + pendentes.length + (pendentes.length === 1 ? " item divergente sem RNC" : " itens divergentes sem RNC")),
       pendentes.slice(0, 8).map((it) =>
         __h("div", { key: rncItemKey(it), className: "bfr-rnc-pend" },
-          __h("span", null, (it.produto || "(sem nome)") + (it.tamanho ? " · " + it.tamanho : "") + " — " + itemDivergencias(it).join("; ")),
-          __h("button", { type: "button", className: "bfr-rnc-req", onClick: () => { const d = draftFromItem(it, name); setOpen(true); setForm({ ...blank, tipo: d.tipo, produto: d.produto, tamanho: d.tamanho, qtd: d.qtd, descricao: d.descricao, itemKey: d.itemKey }); } }, "Abrir RNC"))),
+          __h("span", { style: { display: "flex", alignItems: "center", gap: 8 } }, fotoDoItem(productPhotos, it.produto) && __h("img", { src: fotoDoItem(productPhotos, it.produto), alt: "Foto do item", title: "Foto do item", className: "bfr-rnc-foto", style: { width: 40, height: 40 } }), (it.produto || "(sem nome)") + (it.tamanho ? " · " + it.tamanho : "") + " — " + itemDivergencias(it).join("; ")),
+          __h("button", { type: "button", className: "bfr-rnc-req", onClick: () => { const d = draftFromItem(it, name); setOpen(true); setForm({ ...blank, tipo: d.tipo, produto: d.produto, tamanho: d.tamanho, qtd: d.qtd, descricao: d.descricao, itemKey: d.itemKey }); focarFormulario(); setToast("RNC pré-preenchida com o item — complete e clique em “Salvar RNC”."); } }, "Abrir RNC"))),
       pendentes.length > 8 && __h("div", { className: "bfr-rnc-meta" }, "… e mais " + (pendentes.length - 8) + " (veja as linhas em vermelho na tabela)."),
       __h("div", { className: "bfr-rnc-actions" }, __h("button", { type: "button", className: "bfr-btn", onClick: gerarTodas }, "Gerar RNC de todos os divergentes (" + pendentes.length + ")"))
     ),
-    open && __h("div", { style: { marginTop: 12 } },
+    open && __h("div", { style: { marginTop: 12 }, ref: formRef },
+      fotoDoItem(productPhotos, form.produto) && __h("div", { className: "bfr-rnc-actions", style: { marginTop: 0, marginBottom: 10 } }, __h("img", { src: fotoDoItem(productPhotos, form.produto), alt: "Foto do item", className: "bfr-rnc-foto", style: { width: 72, height: 72 } }), __h("span", { className: "bfr-rnc-meta" }, "Foto do item (cadastrada na tabela)")),
       __h("div", { className: "bfr-rnc-grid" },
         F("Tipo", __h("select", { className: "bfr-input", value: form.tipo, onChange: (e) => set("tipo", e.target.value) }, RNC_TIPOS.map((t) => __h("option", { key: t, value: t }, t)))),
         F("Produto (opcional)", __h("input", { className: "bfr-input", value: form.produto, onChange: (e) => set("produto", e.target.value) })),
         F("Tamanho", __h("input", { className: "bfr-input", value: form.tamanho, onChange: (e) => set("tamanho", e.target.value) })),
         F("Quantidade", __h("input", { className: "bfr-input", value: form.qtd, onChange: (e) => set("qtd", e.target.value) }))
       ),
-      __h("div", { style: { marginTop: 10 } }, F("O que aconteceu *", __h("textarea", { className: "bfr-rnc-textarea", value: form.descricao, onChange: (e) => set("descricao", e.target.value) }))),
+      __h("div", { style: { marginTop: 10 } }, F("O que aconteceu *", __h("textarea", { className: "bfr-rnc-textarea", ref: descRef, value: form.descricao, onChange: (e) => set("descricao", e.target.value) }))),
       __h("div", { style: { marginTop: 10 } }, F("Ação tomada / a tomar", __h("textarea", { className: "bfr-rnc-textarea", style: { minHeight: 56 }, value: form.acao, onChange: (e) => set("acao", e.target.value) }))),
       __h("div", { className: "bfr-rnc-actions" },
         __h("button", { type: "button", className: "bfr-btn", onClick: () => fileRef.current && fileRef.current.click() }, form.foto ? "📷 Trocar foto" : "📷 Anexar foto"),
@@ -2212,6 +2235,7 @@ function KioskRncPanel({ name, kiosk, rncs, responsavel, draft, onDraftDone, onA
           r.acao && __h("div", { className: "bfr-rnc-meta" }, "Ação: " + r.acao),
           __h("div", { className: "bfr-rnc-meta" }, (r.responsavel ? r.responsavel + " · " : "") + new Date(r.createdAt || Date.now()).toLocaleString("pt-BR"))
         ),
+        fotoDoItem(productPhotos, r.produto) && __h("img", { src: fotoDoItem(productPhotos, r.produto), alt: "Foto do item", title: "Foto do item", className: "bfr-rnc-foto" }),
         r.foto && __h("img", { src: r.foto, alt: "Foto da RNC", className: "bfr-rnc-foto" }),
         __h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
           __h("button", { type: "button", className: "bfr-btn", onClick: () => onToggle(r.id) }, r.resolvida ? "Reabrir" : "Resolver"),
@@ -2345,7 +2369,8 @@ function PosJogoModal({ info, state, onApply, onCancel }) {
   const k = state.kiosks[info.kioskName];
   const [zeroMissing, setZeroMissing] = useState(true);
   const [criarRnc, setCriarRnc] = useState(false);
-  const res = useMemo(() => (k ? matchPosJogo(k.items || [], info.itens) : { matches: [], naoEstavam: [] }), [k, info]);
+  const filtrado = useMemo(() => filtrarArquivoPorQuiosque(info.kioskName, info.itens), [info]);
+  const res = useMemo(() => (k ? matchPosJogo(k.items || [], filtrado.itens) : { matches: [], naoEstavam: [] }), [k, filtrado]);
   if (!k) return null;
   const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const tituloNaoBate = info.titulo && !(norm(info.kioskName).includes(norm(info.titulo)) || norm(info.titulo).includes(norm(info.kioskName)));
@@ -2379,7 +2404,8 @@ function PosJogoModal({ info, state, onApply, onCancel }) {
       __h("div", { className: "bfr-rnc-meta" }, "Colunas reconhecidas: produto = “" + info.colunas.produto + "”  ·  quantidade = “" + info.colunas.qtd + "”"),
       tituloNaoBate && __h("div", { style: { color: "#f0a0a0", fontSize: 13, marginTop: 8 } }, "⚠ O arquivo parece ser de “" + info.titulo + "”, mas você está em “" + info.kioskName + "”. Confira antes de aplicar."),
       __h("div", { className: "bfr-pos-list" },
-        __h("div", null, "• " + info.itens.length + " linhas no arquivo (saldo total " + totalSaldo + " nos itens encontrados)"),
+        __h("div", null, "• " + filtrado.itens.length + " linhas no arquivo (saldo total " + totalSaldo + " nos itens encontrados)"),
+        filtrado.ignoradas > 0 && __h("div", { className: "bfr-rnc-meta" }, "• " + filtrado.ignoradas + " linhas ignoradas (" + filtrado.motivo + ")"),
         __h("div", null, "• " + casados + " itens deste quiosque encontrados → o saldo vai para a coluna “Devol. Pós-Jogo”"),
         __h("div", null, "• " + semLinha + " itens do quiosque sem linha no arquivo"),
         __h("div", null, "• " + res.naoEstavam.length + " linhas do arquivo que não estão neste quiosque"),
@@ -2739,6 +2765,73 @@ function EtiquetasView({ state, draft }) {
   );
 }
 
+/* ===================== PERSONALIZAÇÃO · CONFERIDO · FOTO DO ITEM ===================== */
+const PERSONALIZACAO_PARES = { "oeste inferior": "Personalização Oeste Inferior", "leste inferior": "Personalização Leste Inferior" };
+const PERSONALIZACAO_NOMES = Object.values(PERSONALIZACAO_PARES);
+function semAcento(s) { return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim(); }
+function nomeNorm(s) { return semAcento(s).replace(/\s+/g, " ").toLowerCase(); }
+// itens de personalização e patches (ex.: PERSONALIZAÇÃO MIZUNO - NOME, PATCH NILTON SANTOS PRETO)
+function ehPersonalizacao(produto) { return /^(PERSONALIZACAO|PATCH)\b/.test(semAcento(produto)); }
+
+function garantirPersonalizacao(st) {
+  const order = [...(st.order || [])];
+  const kiosks = { ...(st.kiosks || {}) };
+  PERSONALIZACAO_NOMES.forEach((nome) => {
+    if (!kiosks[nome]) kiosks[nome] = { ...emptyKiosk(), data: todayBR() };
+    if (!order.includes(nome)) order.push(nome);
+  });
+  return { order, kiosks };
+}
+
+// move os itens de personalização do Oeste/Leste Inferior para a aba "Personalização ..." correspondente
+function desviarPersonalizacao(s) {
+  const kiosks = { ...s.kiosks };
+  const order = [...(s.order || [])];
+  let moveu = 0;
+  const chave = (it) => String(it.produto || "").trim().toUpperCase() + "|" + String(it.tamanho || "").trim().toUpperCase();
+  Object.keys(s.kiosks).forEach((nm) => {
+    const destino = PERSONALIZACAO_PARES[nomeNorm(nm)];
+    if (!destino) return;
+    const k = kiosks[nm];
+    const mover = (k.items || []).filter((it) => ehPersonalizacao(it.produto));
+    if (!mover.length) return;
+    const alvo = kiosks[destino] || { ...emptyKiosk(), responsavel: k.responsavel, jogo: k.jogo, data: k.data };
+    const itens = (alvo.items || []).map((it) => ({ ...it }));
+    mover.forEach((it) => {
+      const achado = itens.find((x) => chave(x) === chave(it));
+      if (achado) { achado.qtdEnviada = it.qtdEnviada; achado.codigo = it.codigo || achado.codigo; }
+      else itens.push(it);
+    });
+    kiosks[destino] = { ...alvo, items: itens };
+    kiosks[nm] = { ...k, items: (k.items || []).filter((it) => !ehPersonalizacao(it.produto)) };
+    if (!order.includes(destino)) order.push(destino);
+    moveu += mover.length;
+  });
+  window.__desvioN = (window.__desvioN || 0) + moveu;
+  return moveu ? { ...s, kiosks, order } : s;
+}
+
+function filtrarArquivoPorQuiosque(nome, itens) {
+  const n = nomeNorm(nome);
+  if (PERSONALIZACAO_PARES[n]) {
+    const ok = itens.filter((x) => !ehPersonalizacao(x.produto));
+    return { itens: ok, ignoradas: itens.length - ok.length, motivo: "personalização/patch — use o pós-jogo na aba Personalização" };
+  }
+  if (PERSONALIZACAO_NOMES.some((p) => nomeNorm(p) === n)) {
+    const ok = itens.filter((x) => ehPersonalizacao(x.produto));
+    return { itens: ok, ignoradas: itens.length - ok.length, motivo: "produtos que não são personalização/patch" };
+  }
+  return { itens, ignoradas: 0, motivo: "" };
+}
+
+// item conferido: conferência pré-jogo preenchida, igual à enviada e sem nenhuma divergência
+function itemConferido(it) {
+  const conf = toNum(it.confPreJogo);
+  return conf > 0 && conf === toNum(it.qtdEnviada) && itemDivergencias(it).length === 0;
+}
+
+function fotoDoItem(fotos, produto) { return (fotos && fotos[normalizeProdutoKey(produto || "")]) || ""; }
+
 function ProductPhotoUpload({ value, onChange }) {
   return /* @__PURE__ */ React.createElement("label", { className: `bfr-foto-upload ${value ? "" : "bfr-foto-empty"}`, title: "Anexar foto do produto" }, value ? /* @__PURE__ */ React.createElement("img", { src: value, alt: "Foto do produto", className: "bfr-foto-img" }) : /* @__PURE__ */ React.createElement("span", { className: "bfr-foto-placeholder" }, "\u{1F4F7}"), /* @__PURE__ */ React.createElement(
     "input",
@@ -2946,8 +3039,14 @@ function GlobalStyle() {
       @media screen {
         .bfr-row-alert td { background: rgba(176,43,43,0.20) !important; }
         .bfr-row-alert td:first-child { box-shadow: inset 3px 0 0 #b02b2b; }
+        .bfr-row-ok td { background: rgba(46,158,91,0.16) !important; }
+        .bfr-row-ok td:first-child { box-shadow: inset 3px 0 0 #2e9e5b; }
+        .bfr-row-ok td:first-child, .bfr-row-alert td:first-child { position: relative; }
+        .bfr-row-ok td:first-child::after { content:"✓"; position:absolute; top:1px; right:3px; font-size:12px; font-weight:700; color:#4cd48a; }
+        .bfr-row-alert td:first-child::after { content:"⚠"; position:absolute; top:1px; right:3px; font-size:11px; color:#f0a0a0; }
       }
       .bfr-div-badge { margin-left:12px; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0; text-transform:none; background:rgba(176,43,43,0.25); color:#f0a0a0; border:1px solid #6b2b2b; border-radius:10px; padding:2px 8px; vertical-align:middle; }
+      .bfr-ok-badge { margin-left:8px; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0; text-transform:none; background:rgba(46,158,91,0.22); color:#7ee0a8; border:1px solid #2e7d4f; border-radius:10px; padding:2px 8px; vertical-align:middle; }
       .bfr-rnc-wrap { display:flex; flex-direction:column; gap:14px; }
       .bfr-rnc-panel { background:#161618; border:1px solid #2a2a2d; border-radius:10px; padding:16px; }
       .bfr-rnc-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
